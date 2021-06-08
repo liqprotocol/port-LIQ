@@ -31,20 +31,3 @@ yarn install
 source .env
 yarn partialLiquidate
 ```
-
-## Setup Full Liquidator [DEPRECATED]
-Make sure to edit the .env file to look something like this:
-```
-export CLUSTER="mainnet-beta"
-export CLUSTER_URL="https://solana-api.projectserum.com"
-export KEYPAIR=~/.config/solana/id.json
-export NODE_ENV=production
-export GROUP_NAME="BTC_ETH_USDT"
-```
-
-### Run
-```
-yarn install
-source .env
-yarn liquidate
-```
