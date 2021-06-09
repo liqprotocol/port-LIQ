@@ -17,8 +17,8 @@ import { LendingInstruction } from './instructions';
 ///                     currency.
 export const refreshReserveInstruction = (
   reserve: PublicKey,
-  oracle: PublicKey,
-  lendingProgramId: PublicKey
+  lendingProgramId: PublicKey,
+  oracle?: PublicKey,
 ): TransactionInstruction => {
   const dataLayout = BufferLayout.struct([BufferLayout.u8('instruction')]);
 

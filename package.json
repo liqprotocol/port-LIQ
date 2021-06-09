@@ -8,8 +8,8 @@
   "scripts": {
     "build": "tsc",
     "start": "ts-node src/index.ts",
-    "liquidate": "ts-node src/liquidate.ts",
     "partialLiquidate": "ts-node src/partial.ts",
+    "refreshAll": "ts-node src/refreshAll.ts",
     "test": "ts-node src/test.ts",
     "watch": "tsc --watch",
     "clean": "rm -rf dist",

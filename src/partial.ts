@@ -1,10 +1,14 @@
-import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import { Account, Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { notify, sleep } from './utils';
+import { getAllObligations, getParsedReservesMap, notify, sleep } from './utils';
 import BN = require('bn.js');
-import { Obligation, ObligationParser } from './obligation';
-import { EnrichedReserve, ReserveParser } from './reserve';
+import { Obligation, ObligationParser } from './layouts/obligation';
+import { EnrichedReserve, Reserve, ReserveParser } from './layouts/reserve';
+import { refreshReserveInstruction } from './instructions/refreshReserve';
+import { refreshObligationInstruction } from './instructions/refreshObligation';
+import { liquidateObligationInstruction } from './instructions/liquidateObligation';
+import { AccountLayout, Token } from '@solana/spl-token';
 
 async function runPartialLiquidator() {
   const cluster = process.env.CLUSTER || 'mainnet-beta'
@@ -17,27 +21,21 @@ async function runPartialLiquidator() {
 
   // liquidator's keypair
   const keyPairPath = process.env.KEYPAIR || homedir() + '/.config/solana/id.json'
-  const payer = new Keypair(JSON.parse(fs.readFileSync(keyPairPath, 'utf-8')))
+  const payer = new Account(JSON.parse(fs.readFileSync(keyPairPath, 'utf-8')))
 
   console.log(`partial liquidator launched cluster=${cluster}`);
 
   const parsedReserveMap = await getParsedReservesMap(connection, programId);
-  console.log(parsedReserveMap);
+  // console.log(parsedReserveMap);
 
   while (true) {
     try {
 
       const liquidatedAccounts = await getLiquidatedObligations(connection, programId);
-      
+      console.log(`payer account ${payer.publicKey.toBase58()}, we have ${liquidatedAccounts.length} accounts`)
       for (const liquidatedAccount of liquidatedAccounts) {
-        console.log(
-          "liquidated account: ", 
-          liquidatedAccount.publicKey.toBase58(), 
-          liquidatedAccount.borrowedValue
-          .sub(
-            liquidatedAccount.allowedBorrowValue)
-          .div(
-            new BN("1000000000000000000", 10)).toNumber() / 1000000);
+        console.log("liquidated...")
+        await liquidateAccount(connection, programId, payer, liquidatedAccount, parsedReserveMap,);
       }
 
     } catch (e) {
@@ -51,67 +49,85 @@ async function runPartialLiquidator() {
 
 }
 
-async function getLiquidatedObligations(connection: Connection, programId: PublicKey) {
-  const obligations = await connection.getProgramAccounts(
+async function liquidateAccount(connection: Connection, programId: PublicKey, payer: Account, obligation: Obligation, parsedReserveMap: Map<string, EnrichedReserve>) {
+  // console.log(
+  //   "liquidated account: ",
+  //   obligation.publicKey.toBase58(),
+  //   obligation.borrowedValue
+  //     .sub(
+  //       obligation.allowedBorrowValue)
+  //     .div(
+  //       new BN("1000000000000000000", 10)).toNumber() / 1000000);
+  const accountRentExempt = await connection.getMinimumBalanceForRentExemption(
+    AccountLayout.span,
+  );
+  const lendingMarket: PublicKey = parsedReserveMap.values().next().value.reserve.lendingMarket;
+  const [lendingMarketAuthority] = await PublicKey.findProgramAddress(
+    [lendingMarket.toBuffer()],
     programId,
-    {
-      filters: [
-        {
-          dataSize: 916,
-        }
-      ]
+  );
+  const transaction = new Transaction();
+  parsedReserveMap.forEach(
+    (reserve: EnrichedReserve) => {
+      transaction.add(
+        refreshReserveInstruction(
+          reserve.publicKey,
+          programId,
+          reserve.reserve.liquidity.oracleOption === 0 ?
+            undefined : reserve.reserve.liquidity.oraclePubkey
+        )
+      );
     }
-  )
+  );
+  // TODO: choose a more sensible value
+  const repayReserve:EnrichedReserve = parsedReserveMap[obligation.borrows[0].borrowReserve.toBase58()];
+  const withdrawReserve:EnrichedReserve = parsedReserveMap[obligation.deposits[0].depositReserve.toBase58()];
   
-  console.log("length: ", obligations.length);
-  const parsedObligations: Obligation[] = [];
-  
-  for (const obligation of obligations) {
-    const parsedObligation = ObligationParser(
-      obligation.pubkey,
-      obligation.account,
-    )
-    if (parsedObligation === undefined) {
-      continue;
-    }
-    parsedObligations.push(parsedObligation);
-  }
-  
-  return parsedObligations
-    .filter(
-      obligation => obligation.allowedBorrowValue.lt(obligation.borrowedValue)
-    )
+  const transferAuthority = new Account();
 
+  transaction.add(
+    refreshObligationInstruction(
+      obligation.publicKey,
+      obligation.deposits.map(deposit => deposit.depositReserve),
+      obligation.borrows.map(borrow => borrow.borrowReserve),
+      programId
+    ),
+    // Token.createApproveInstruction(
+    //   new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+    //   account,
+    //   transferAuthority.publicKey,
+    //   owner,
+    //   [],
+    //   1000000,
+    // ),
+    // liquidateObligationInstruction(
+    //   new BN('18446744073709551615', 10),
+    //   undefined,
+    //   undefined,
+    //   repayReserve.publicKey,
+    //   repayReserve.reserve.liquidity.supplyPubkey,
+    //   withdrawReserve.publicKey,
+    //   withdrawReserve.reserve.collateral.supplyPubkey,
+    //   liquidatedAccount.publicKey,
+    //   lendingMarket,
+    //   lendingMarketAuthority,
+    //   undefined,
+    //   programId,
+    // )
+  );
+  connection.sendTransaction(
+    transaction,
+    [payer]
+  );
 }
 
-async function getParsedReservesMap(connection: Connection, programId: PublicKey) {
-    const allReserves = await connection.getProgramAccounts(
-      programId,
-      {
-        filters: [
-          {
-            // TODO: change this part when upgrade to Pyth.
-            dataSize: 567,
-          }
-        ]
-      }
-    )
-    
-    const parsedReserves: Map<string, EnrichedReserve> = new Map();
-    for (const reserve of allReserves) {
-      const parsedReserve = ReserveParser(
-        reserve.pubkey,
-        reserve.account
-      )
-      if (parsedReserve === undefined) {
-        continue;
-      }
-      parsedReserves.set(
-        parsedReserve.publicKey.toBase58(),
-        parsedReserve
-      )
-    }
-    return parsedReserves;
+async function getLiquidatedObligations(connection: Connection, programId: PublicKey) {
+  const obligations = await getAllObligations(connection, programId)
+  
+  return obligations
+    .filter(
+      obligation => obligation.unhealthyBorrowValue.lt(obligation.borrowedValue)
+    );
 }
 
 runPartialLiquidator()
