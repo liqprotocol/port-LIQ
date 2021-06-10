@@ -1,8 +1,10 @@
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection, PublicKey, Account, SystemProgram, Transaction } from '@solana/web3.js';
 import axios from 'axios';
 import { Obligation, ObligationParser } from './layouts/obligation';
 import { bits, blob, struct, u8, u32, nu64 } from 'buffer-layout';
 import { EnrichedReserve, ReserveParser } from './layouts/reserve';
+import { AccountLayout, Token } from '@solana/spl-token';
+import { TransactionInstruction } from '@solana/web3.js';
 
 export const TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 
@@ -79,11 +81,11 @@ export async function getParsedReservesMap(connection: Connection, programId: Pu
 
 export async function findLargestTokenAccountForOwner(
   connection: Connection,
-  owner: PublicKey,
+  owner: Account,
   mint: PublicKey
-): Promise<{ publicKey: PublicKey; tokenAccount: { mint: PublicKey; owner: PublicKey; amount: number} }> {
+): Promise<{ publicKey: PublicKey; tokenAccount: Wallet }> {
 
-  const response = await connection.getTokenAccountsByOwner(owner, {mint}, connection.commitment)
+  const response = await connection.getTokenAccountsByOwner(owner.publicKey, {mint}, connection.commitment)
   let max = -1;
   let maxTokenAccount: null | { mint: PublicKey; owner: PublicKey; amount: number} = null
   let maxPubkey: null | PublicKey = null
@@ -100,7 +102,7 @@ export async function findLargestTokenAccountForOwner(
   if (maxPubkey && maxTokenAccount) {
     return {publicKey: maxPubkey, tokenAccount: maxTokenAccount}
   } else {
-    throw new Error("No accounts for this token")
+    throw Error("no token account")
   }
 }
 
@@ -111,6 +113,51 @@ export const ACCOUNT_LAYOUT = struct([
   blob(93)
 ]);
 
+export function createTokenAccount(
+  instructions: TransactionInstruction[],
+  payer: PublicKey,
+  accountRentExempt: number,
+  mint: PublicKey,
+  owner: PublicKey,
+  signers: Account[],
+) {
+  const account = createUninitializedAccount(
+    instructions,
+    payer,
+    accountRentExempt,
+    signers,
+  );
+
+  instructions.push(
+    Token.createInitAccountInstruction(new PublicKey(TOKEN_PROGRAM_ID), mint, account, owner),
+  );
+
+  return account;
+}
+
+export function createUninitializedAccount(
+  instructions: TransactionInstruction[],
+  payer: PublicKey,
+  amount: number,
+  signers: Account[],
+) {
+  const account = new Account();
+  console.log("amount: ", amount)
+  instructions.push(
+    SystemProgram.createAccount({
+      fromPubkey: payer,
+      newAccountPubkey: account.publicKey,
+      lamports: amount,
+      space: AccountLayout.span,
+      programId: new PublicKey(TOKEN_PROGRAM_ID),
+    }),
+  );
+
+  signers.push(account);
+
+  return account.publicKey;
+}
+
 export function parseTokenAccountData(
   data: Buffer,
 ): { mint: PublicKey; owner: PublicKey; amount: number } {
@@ -120,4 +167,10 @@ export function parseTokenAccountData(
     owner: new PublicKey(owner),
     amount,
   };
+}
+
+export interface Wallet {
+  mint: PublicKey,
+  owner: PublicKey,
+  amount: number,
 }

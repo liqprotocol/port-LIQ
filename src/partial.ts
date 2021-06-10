@@ -1,14 +1,14 @@
 import { Account, Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { getAllObligations, getParsedReservesMap, notify, sleep } from './utils';
+import { findLargestTokenAccountForOwner, getAllObligations, getParsedReservesMap, notify, sleep, Wallet } from './utils';
 import BN = require('bn.js');
 import { Obligation, ObligationParser } from './layouts/obligation';
 import { EnrichedReserve, Reserve, ReserveParser } from './layouts/reserve';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
 import { refreshObligationInstruction } from './instructions/refreshObligation';
 import { liquidateObligationInstruction } from './instructions/liquidateObligation';
-import { AccountLayout, Token } from '@solana/spl-token';
+import { AccountLayout, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 
 async function runPartialLiquidator() {
   const cluster = process.env.CLUSTER || 'mainnet-beta'
@@ -26,7 +26,27 @@ async function runPartialLiquidator() {
   console.log(`partial liquidator launched cluster=${cluster}`);
 
   const parsedReserveMap = await getParsedReservesMap(connection, programId);
-  // console.log(parsedReserveMap);
+  const wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }> = new Map();
+  const reserves:EnrichedReserve[] = [];
+  parsedReserveMap.forEach(
+    (reserve) => reserves.push(reserve)
+  );
+  const liquidityWallets = Promise.all(
+    reserves.map(
+      reserve => findLargestTokenAccountForOwner(connection, payer, reserve.reserve.liquidity.mintPubkey)
+    )
+  );
+  console.log("liquidity completed")
+  const collateralWallets = Promise.all(
+    reserves.map(
+      reserve => findLargestTokenAccountForOwner(connection, payer, reserve.reserve.collateral.mintPubkey)
+    )
+  );
+  for (let i = 0; i < reserves.length; i++) {
+    wallets.set(reserves[i].reserve.liquidity.mintPubkey.toBase58(), liquidityWallets[i]);
+    wallets.set(reserves[i].reserve.collateral.mintPubkey.toBase58(), collateralWallets[i]);
+  }
+  
 
   while (true) {
     try {
@@ -35,7 +55,7 @@ async function runPartialLiquidator() {
       console.log(`payer account ${payer.publicKey.toBase58()}, we have ${liquidatedAccounts.length} accounts`)
       for (const liquidatedAccount of liquidatedAccounts) {
         console.log("liquidated...")
-        await liquidateAccount(connection, programId, payer, liquidatedAccount, parsedReserveMap,);
+        await liquidateAccount(connection, programId, payer, liquidatedAccount, parsedReserveMap, wallets);
       }
 
     } catch (e) {
@@ -49,15 +69,7 @@ async function runPartialLiquidator() {
 
 }
 
-async function liquidateAccount(connection: Connection, programId: PublicKey, payer: Account, obligation: Obligation, parsedReserveMap: Map<string, EnrichedReserve>) {
-  // console.log(
-  //   "liquidated account: ",
-  //   obligation.publicKey.toBase58(),
-  //   obligation.borrowedValue
-  //     .sub(
-  //       obligation.allowedBorrowValue)
-  //     .div(
-  //       new BN("1000000000000000000", 10)).toNumber() / 1000000);
+async function liquidateAccount(connection: Connection, programId: PublicKey, payer: Account, obligation: Obligation, parsedReserveMap: Map<string, EnrichedReserve>, wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }>) {
   const accountRentExempt = await connection.getMinimumBalanceForRentExemption(
     AccountLayout.span,
   );
@@ -84,7 +96,12 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
   const withdrawReserve:EnrichedReserve = parsedReserveMap[obligation.deposits[0].depositReserve.toBase58()];
   
   const transferAuthority = new Account();
-
+  
+  if (!wallets.has(repayReserve.reserve.liquidity.mintPubkey.toBase58()) || 
+      !wallets.has(withdrawReserve.reserve.collateral.mintPubkey.toBase58())) {
+    return;
+  }
+  
   transaction.add(
     refreshObligationInstruction(
       obligation.publicKey,
@@ -92,28 +109,28 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
       obligation.borrows.map(borrow => borrow.borrowReserve),
       programId
     ),
-    // Token.createApproveInstruction(
-    //   new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
-    //   account,
-    //   transferAuthority.publicKey,
-    //   owner,
-    //   [],
-    //   1000000,
-    // ),
-    // liquidateObligationInstruction(
-    //   new BN('18446744073709551615', 10),
-    //   undefined,
-    //   undefined,
-    //   repayReserve.publicKey,
-    //   repayReserve.reserve.liquidity.supplyPubkey,
-    //   withdrawReserve.publicKey,
-    //   withdrawReserve.reserve.collateral.supplyPubkey,
-    //   liquidatedAccount.publicKey,
-    //   lendingMarket,
-    //   lendingMarketAuthority,
-    //   undefined,
-    //   programId,
-    // )
+    Token.createApproveInstruction(
+      TOKEN_PROGRAM_ID,
+      wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey,
+      transferAuthority.publicKey,
+      payer.publicKey,
+      [],
+      1000000,
+    ),
+    liquidateObligationInstruction(
+      new BN('18446744073709551615', 10),
+      wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey,
+      wallets.get(withdrawReserve.reserve.collateral.mintPubkey.toBase58())!.publicKey!,
+      repayReserve.publicKey,
+      repayReserve.reserve.liquidity.supplyPubkey,
+      withdrawReserve.publicKey,
+      withdrawReserve.reserve.collateral.supplyPubkey,
+      obligation.publicKey,
+      lendingMarket,
+      lendingMarketAuthority,
+      transferAuthority.publicKey,
+      programId,
+    )
   );
   connection.sendTransaction(
     transaction,
