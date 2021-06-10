@@ -68,9 +68,6 @@ async function runPartialLiquidator() {
 }
 
 async function liquidateAccount(connection: Connection, programId: PublicKey, payer: Account, obligation: Obligation, parsedReserveMap: Map<string, EnrichedReserve>, wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }>) {
-  const accountRentExempt = await connection.getMinimumBalanceForRentExemption(
-    AccountLayout.span,
-  );
   const lendingMarket: PublicKey = parsedReserveMap.values().next().value.reserve.lendingMarket;
   const [lendingMarketAuthority] = await PublicKey.findProgramAddress(
     [lendingMarket.toBuffer()],
