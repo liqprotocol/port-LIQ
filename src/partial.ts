@@ -31,13 +31,12 @@ async function runPartialLiquidator() {
   parsedReserveMap.forEach(
     (reserve) => reserves.push(reserve)
   );
-  const liquidityWallets = Promise.all(
+  const liquidityWallets = await Promise.all(
     reserves.map(
       reserve => findLargestTokenAccountForOwner(connection, payer, reserve.reserve.liquidity.mintPubkey)
     )
   );
-  console.log("liquidity completed")
-  const collateralWallets = Promise.all(
+  const collateralWallets = await Promise.all(
     reserves.map(
       reserve => findLargestTokenAccountForOwner(connection, payer, reserve.reserve.collateral.mintPubkey)
     )
@@ -46,7 +45,6 @@ async function runPartialLiquidator() {
     wallets.set(reserves[i].reserve.liquidity.mintPubkey.toBase58(), liquidityWallets[i]);
     wallets.set(reserves[i].reserve.collateral.mintPubkey.toBase58(), collateralWallets[i]);
   }
-  
 
   while (true) {
     try {

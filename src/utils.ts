@@ -102,7 +102,29 @@ export async function findLargestTokenAccountForOwner(
   if (maxPubkey && maxTokenAccount) {
     return {publicKey: maxPubkey, tokenAccount: maxTokenAccount}
   } else {
-    throw Error("no token account")
+    console.log("creating new token account")
+    const transaction = new Transaction();
+    const tokenAccount = new Account();
+    const rent = await connection.getMinimumBalanceForRentExemption(AccountLayout.span)
+    transaction.add(
+      SystemProgram.createAccount(
+        {
+          fromPubkey: owner.publicKey,
+          newAccountPubkey: tokenAccount.publicKey,
+          lamports: rent,
+          space: AccountLayout.span,
+          programId: new PublicKey(TOKEN_PROGRAM_ID),
+        }
+      ),
+      Token.createInitAccountInstruction(
+        new PublicKey(TOKEN_PROGRAM_ID),
+        mint,
+        tokenAccount.publicKey,
+        owner.publicKey,
+      )
+    )
+    await connection.sendTransaction(transaction, [owner, tokenAccount])
+    return {publicKey: tokenAccount.publicKey, tokenAccount: {mint, amount: 0, owner: owner.publicKey}}
   }
 }
 
