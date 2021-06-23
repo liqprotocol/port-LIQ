@@ -8,7 +8,7 @@ import { EnrichedReserve, Reserve, ReserveParser } from './layouts/reserve';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
 import { refreshObligationInstruction } from './instructions/refreshObligation';
 import { liquidateObligationInstruction } from './instructions/liquidateObligation';
-import { AccountLayout, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 
 async function runPartialLiquidator() {
   const cluster = process.env.CLUSTER || 'devnet'
@@ -50,9 +50,11 @@ async function runPartialLiquidator() {
     try {
 
       const liquidatedAccounts = await getLiquidatedObligations(connection, programId);
-      console.log(`payer account ${payer.publicKey.toBase58()}, we have ${liquidatedAccounts.length} accounts`)
+      console.log(`payer account ${payer.publicKey.toBase58()}, we have ${liquidatedAccounts.length} accounts for liquidation`)
       for (const liquidatedAccount of liquidatedAccounts) {
-        console.log("liquidated...")
+        console.log(
+          `Liquidating obligation account ${liquidatedAccount.publicKey.toBase58()} which is owned by ${liquidatedAccount.owner.toBase58()}
+           which has borrowed ${liquidatedAccount.borrowedValue} with liquidation borrowed value at ${liquidatedAccount.unhealthyBorrowValue} ...`)
         await liquidateAccount(connection, programId, payer, liquidatedAccount, parsedReserveMap, wallets);
       }
 
@@ -80,18 +82,21 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
         refreshReserveInstruction(
           reserve.publicKey,
           programId,
-          reserve.reserve.liquidity.oracleOption === 0 ?
-            undefined : reserve.reserve.liquidity.oraclePubkey
+          reserve.reserve.liquidity.oraclePubkey
         )
       );
     }
   );
   // TODO: choose a more sensible value
-  const repayReserve:EnrichedReserve = parsedReserveMap[obligation.borrows[0].borrowReserve.toBase58()];
-  const withdrawReserve:EnrichedReserve = parsedReserveMap[obligation.deposits[0].depositReserve.toBase58()];
+  const repayReserve:EnrichedReserve | undefined = parsedReserveMap.get(obligation.borrows[0].borrowReserve.toBase58());
+  const withdrawReserve:EnrichedReserve | undefined = parsedReserveMap.get(obligation.deposits[0].depositReserve.toBase58());
   
   const transferAuthority = new Account();
   
+  if (!repayReserve || !withdrawReserve) {
+    return;
+  }
+
   if (!wallets.has(repayReserve.reserve.liquidity.mintPubkey.toBase58()) || 
       !wallets.has(withdrawReserve.reserve.collateral.mintPubkey.toBase58())) {
     return;
@@ -127,9 +132,9 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
       programId,
     )
   );
-  connection.sendTransaction(
+  await connection.sendTransaction(
     transaction,
-    [payer]
+    [payer, transferAuthority]
   );
 }
 
