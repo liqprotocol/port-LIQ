@@ -88,8 +88,8 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
     }
   );
   // TODO: choose a more sensible value
-  const repayReserve:EnrichedReserve | undefined = parsedReserveMap.get(obligation.borrows[0].borrowReserve.toBase58());
-  const withdrawReserve:EnrichedReserve | undefined = parsedReserveMap.get(obligation.deposits[0].depositReserve.toBase58());
+  const repayReserve: EnrichedReserve | undefined = parsedReserveMap.get(obligation.borrows[0].borrowReserve.toBase58());
+  const withdrawReserve: EnrichedReserve | undefined = parsedReserveMap.get(obligation.deposits[0].depositReserve.toBase58());
   
   const transferAuthority = new Account();
   
@@ -115,9 +115,10 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
       transferAuthority.publicKey,
       payer.publicKey,
       [],
-      1000000,
+      1000000000000,
     ),
     liquidateObligationInstruction(
+      // u64 MAX for all borrowed amount
       new BN('18446744073709551615', 10),
       wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey,
       wallets.get(withdrawReserve.reserve.collateral.mintPubkey.toBase58())!.publicKey!,
@@ -130,12 +131,13 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
       lendingMarketAuthority,
       transferAuthority.publicKey,
       programId,
-    )
+    ),
   );
-  await connection.sendTransaction(
+  const sig = await connection.sendTransaction(
     transaction,
-    [payer, transferAuthority]
+    [payer, transferAuthority],
   );
+  console.log(`liqudiation transaction sent: ${sig}.`)
 }
 
 async function getLiquidatedObligations(connection: Connection, programId: PublicKey) {
