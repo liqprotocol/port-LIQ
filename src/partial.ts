@@ -11,13 +11,13 @@ import { liquidateObligationInstruction } from './instructions/liquidateObligati
 import { AccountLayout, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 
 async function runPartialLiquidator() {
-  const cluster = process.env.CLUSTER || 'mainnet-beta'
+  const cluster = process.env.CLUSTER || 'devnet'
   const clusterUrl = process.env.CLUSTER_URL || "https://api.devnet.solana.com"
   const checkInterval = parseFloat(process.env.CHECK_INTERVAL || "1000.0")
   const connection = new Connection(clusterUrl, 'singleGossip')
 
   // The address of the Port Finance on the blockchain
-  const programId = new PublicKey(process.env.PROGRAM_ID || "3dQ9quWN8gjqRhrtaQhxGpKU2fLjCz4bAVuzmjms7Rxg")
+  const programId = new PublicKey(process.env.PROGRAM_ID || "Port7uDYB3wk6GJAw4KT1WpTeMtSu9bTcChBHkX2LfR")
 
   // liquidator's keypair
   const keyPairPath = process.env.KEYPAIR || homedir() + '/.config/solana/id.json'

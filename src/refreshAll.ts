@@ -8,12 +8,12 @@ import { refreshReserveInstruction } from "./instructions/refreshReserve";
 import { refreshObligationInstruction } from "./instructions/refreshObligation";
 
 async function refreshAllObligations() {
-  const cluster = process.env.CLUSTER || 'mainnet-beta'
+  const cluster = process.env.CLUSTER || 'devnet'
   const clusterUrl = process.env.CLUSTER_URL || "https://api.devnet.solana.com"
   const connection = new Connection(clusterUrl, 'singleGossip')
 
   // The address of the Port Finance on the blockchain
-  const programId = new PublicKey(process.env.PROGRAM_ID || "3dQ9quWN8gjqRhrtaQhxGpKU2fLjCz4bAVuzmjms7Rxg")
+  const programId = new PublicKey(process.env.PROGRAM_ID || "Port7uDYB3wk6GJAw4KT1WpTeMtSu9bTcChBHkX2LfR")
 
   // liquidator's keypair
   const keyPairPath = process.env.KEYPAIR || homedir() + '/.config/solana/id.json'
@@ -28,10 +28,10 @@ async function refreshAllObligations() {
   const totalObligationsCnt: number = obligations.length;
   console.log("public key: ", payer.publicKey.toBase58())
   while(counter < totalObligationsCnt) {
-    let nextCounter = Math.min(counter + 20, totalObligationsCnt);
+    let nextCounter = Math.min(counter + 15, totalObligationsCnt);
     await refreshObligations(connection, programId, payer, obligations.slice(counter, nextCounter), parsedReserveMap);
     counter = nextCounter;
-    if (counter % 500 === 0) {
+    if (counter % 300 === 0) {
       console.log("Completed refreshing %d obligations", counter);
     }
     sleep(2000);
@@ -47,8 +47,7 @@ async function refreshObligations(connection: Connection, programId: PublicKey, 
         refreshReserveInstruction(
           reserve.publicKey,
           programId,
-          reserve.reserve.liquidity.oracleOption === 0 ?
-            undefined : reserve.reserve.liquidity.oraclePubkey
+          reserve.reserve.liquidity.oraclePubkey
         )
       );
     }
@@ -69,8 +68,8 @@ async function refreshObligations(connection: Connection, programId: PublicKey, 
       transaction,
       [payer]
     );
-  } catch {
-    console.error("Error sending refresh transaction")
+  } catch(e) {
+    console.error("Error sending refresh transaction: ", e)
   }
 }
 

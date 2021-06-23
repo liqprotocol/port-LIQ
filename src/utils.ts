@@ -56,7 +56,7 @@ export async function getParsedReservesMap(connection: Connection, programId: Pu
       filters: [
         {
           // TODO: change this part when upgrade to Pyth.
-          dataSize: 567,
+          dataSize: 571,
         }
       ]
     }

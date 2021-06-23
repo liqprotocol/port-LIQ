@@ -67,14 +67,11 @@ export const ReserveLayout: typeof BufferLayout.Structure = BufferLayout.struct(
         BufferLayout.u8('mintDecimals'),
         Layout.publicKey('supplyPubkey'),
         Layout.publicKey('feeReceiver'),
-        // @FIXME: oracle option
-        // TODO: replace u32 option with generic equivalent
-        BufferLayout.u32('oracleOption'),
         Layout.publicKey('oraclePubkey'),
         Layout.uint64('availableAmount'),
         Layout.uint128('borrowedAmountWads'),
         Layout.uint128('cumulativeBorrowRateWads'),
-        Layout.uint64('marketPrice'),
+        Layout.uint128('marketPrice'),
       ],
       'liquidity',
     ),

@@ -18,7 +18,7 @@ import { LendingInstruction } from './instructions';
 export const refreshReserveInstruction = (
   reserve: PublicKey,
   lendingProgramId: PublicKey,
-  oracle?: PublicKey,
+  oracle: PublicKey,
 ): TransactionInstruction => {
   const dataLayout = BufferLayout.struct([BufferLayout.u8('instruction')]);
 
@@ -27,12 +27,9 @@ export const refreshReserveInstruction = (
 
   const keys = [
     { pubkey: reserve, isSigner: false, isWritable: true },
+    { pubkey: oracle, isSigner: false, isWritable: false },
     { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
   ];
-
-  if (oracle) {
-    keys.push({ pubkey: oracle, isSigner: false, isWritable: false });
-  }
 
   return new TransactionInstruction({
     keys,
