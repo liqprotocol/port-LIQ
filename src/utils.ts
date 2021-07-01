@@ -5,13 +5,17 @@ import { bits, blob, struct, u8, u32, nu64 } from 'buffer-layout';
 import { EnrichedReserve, ReserveParser } from './layouts/reserve';
 import { AccountLayout, Token } from '@solana/spl-token';
 import { TransactionInstruction } from '@solana/web3.js';
+import { TOKEN_PROGRAM_ID } from './ids';
 
-export const TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
-
-export function notify(content) {
+export function notify(content: string) {
   if (process.env.WEBHOOK_URL) {
-    axios.post(process.env.WEBHOOK_URL, {content});
+    console.log("hook: ", process.env.WEBHOOK_URL);
+    axios.post(
+      process.env.WEBHOOK_URL,
+      {"text": content}
+    );
   }
+  console.log(content)
 }
 
 export function sleep(ms) {

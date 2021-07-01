@@ -53,7 +53,7 @@ async function runPartialLiquidator() {
       const liquidatedAccounts = await getLiquidatedObligations(connection, programId);
       console.log(`payer account ${payer.publicKey.toBase58()}, we have ${liquidatedAccounts.length} accounts for liquidation`)
       for (const liquidatedAccount of liquidatedAccounts) {
-        console.log(
+        notify(
           `Liquidating obligation account ${liquidatedAccount.publicKey.toBase58()} which is owned by ${liquidatedAccount.owner.toBase58()}
            which has borrowed ${liquidatedAccount.borrowedValue} with liquidation borrowed value at ${liquidatedAccount.unhealthyBorrowValue} ...`)
         await liquidateAccount(connection, programId, payer, liquidatedAccount, parsedReserveMap, wallets);
@@ -65,7 +65,7 @@ async function runPartialLiquidator() {
     } finally {
       await sleep(checkInterval)
     }
-    break;
+    // break;
   }
 
 }
@@ -167,6 +167,10 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
   );
 
   console.log(`Redeem reserve collateral: ${redeemSig}.`);
+
+}
+
+async function sellToken(tokenAccount: Wallet) {
 
 }
 
