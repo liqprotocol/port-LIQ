@@ -9,6 +9,7 @@ import * as Layout from '../layouts/layout';
 import { LendingInstruction } from './instructions';
 import BN = require('bn.js');
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { LENDING_PROGRAM_ID } from '../ids';
 
 /// Repay borrowed liquidity to a reserve to receive collateral at a discount from an unhealthy
 /// obligation. Requires a refreshed obligation and reserves.
@@ -42,7 +43,6 @@ export const liquidateObligationInstruction = (
   lendingMarket: PublicKey,
   lendingMarketAuthority: PublicKey,
   transferAuthority: PublicKey,
-  programId: PublicKey,
 ): TransactionInstruction => {
   const dataLayout = BufferLayout.struct([
     BufferLayout.u8('instruction'),
@@ -79,7 +79,7 @@ export const liquidateObligationInstruction = (
 
   return new TransactionInstruction({
     keys,
-    programId: programId,
+    programId: LENDING_PROGRAM_ID,
     data,
   });
 };

@@ -4,6 +4,7 @@ import {
   TransactionInstruction,
 } from '@solana/web3.js';
 import * as BufferLayout from 'buffer-layout';
+import { LENDING_PROGRAM_ID } from '../ids';
 import { EnrichedReserve } from '../layouts/reserve';
 import { LendingInstruction } from './instructions';
 
@@ -18,7 +19,6 @@ import { LendingInstruction } from './instructions';
 ///                     currency.
 export const refreshReserveInstruction = (
   reserve: EnrichedReserve,
-  lendingProgramId: PublicKey,
 ): TransactionInstruction => {
   const dataLayout = BufferLayout.struct([BufferLayout.u8('instruction')]);
 
@@ -40,7 +40,7 @@ export const refreshReserveInstruction = (
 
   return new TransactionInstruction({
     keys,
-    programId: lendingProgramId,
+    programId: LENDING_PROGRAM_ID,
     data,
   });
 };

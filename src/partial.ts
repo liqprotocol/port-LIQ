@@ -1,14 +1,15 @@
-import { Account, Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { Account, Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
 import { findLargestTokenAccountForOwner, getAllObligations, getParsedReservesMap, notify, sleep, Wallet } from './utils';
 import BN = require('bn.js');
-import { Obligation, ObligationParser } from './layouts/obligation';
-import { EnrichedReserve, Reserve, ReserveParser } from './layouts/reserve';
+import { Obligation } from './layouts/obligation';
+import { EnrichedReserve} from './layouts/reserve';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
 import { refreshObligationInstruction } from './instructions/refreshObligation';
 import { liquidateObligationInstruction } from './instructions/liquidateObligation';
 import { Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { redeemReserveCollateralInstruction } from './instructions/redeemReserveCollateral';
 
 async function runPartialLiquidator() {
   const cluster = process.env.CLUSTER || 'devnet'
@@ -75,13 +76,12 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
     [lendingMarket.toBuffer()],
     programId,
   );
-  const transaction = new Transaction();
+  let transaction = new Transaction();
   parsedReserveMap.forEach(
     (reserve: EnrichedReserve) => {
       transaction.add(
         refreshReserveInstruction(
           reserve,
-          programId,
         )
       );
     }
@@ -106,7 +106,6 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
       obligation.publicKey,
       obligation.deposits.map(deposit => deposit.depositReserve),
       obligation.borrows.map(borrow => borrow.borrowReserve),
-      programId
     ),
     Token.createApproveInstruction(
       TOKEN_PROGRAM_ID,
@@ -129,7 +128,6 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
       lendingMarket,
       lendingMarketAuthority,
       transferAuthority.publicKey,
-      programId,
     ),
   );
   const sig = await connection.sendTransaction(
@@ -137,6 +135,39 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
     [payer, transferAuthority],
   );
   console.log(`liqudiation transaction sent: ${sig}.`)
+
+  const tokenwallet = await findLargestTokenAccountForOwner(connection, payer, withdrawReserve.reserve.collateral.mintPubkey);
+
+  transaction = new Transaction();
+  transaction.add(
+    Token.createApproveInstruction(
+      TOKEN_PROGRAM_ID,
+      wallets.get(withdrawReserve.reserve.collateral.mintPubkey.toBase58())!.publicKey,
+      transferAuthority.publicKey,
+      payer.publicKey,
+      [],
+      1000000000000,
+    ),
+    redeemReserveCollateralInstruction(
+      tokenwallet.tokenAccount.amount,
+      tokenwallet.publicKey,
+      wallets.get(withdrawReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey!,
+      withdrawReserve.publicKey,
+      withdrawReserve.reserve.collateral.mintPubkey,
+      withdrawReserve.reserve.liquidity.supplyPubkey,
+      withdrawReserve.reserve.lendingMarket,
+      lendingMarketAuthority,
+      transferAuthority.publicKey,
+    )
+  )
+  
+  const redeemSig = await connection.sendTransaction(
+    transaction,
+    [payer, transferAuthority],
+  );
+
+  console.log(`Redeem reserve collateral: ${redeemSig}.`);
+
 }
 
 async function getLiquidatedObligations(connection: Connection, programId: PublicKey) {
