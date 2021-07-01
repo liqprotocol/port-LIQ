@@ -80,9 +80,8 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
     (reserve: EnrichedReserve) => {
       transaction.add(
         refreshReserveInstruction(
-          reserve.publicKey,
+          reserve,
           programId,
-          reserve.reserve.liquidity.oraclePubkey
         )
       );
     }

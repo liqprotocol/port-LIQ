@@ -45,9 +45,8 @@ async function refreshObligations(connection: Connection, programId: PublicKey, 
     (reserve: EnrichedReserve) => {
       transaction.add(
         refreshReserveInstruction(
-          reserve.publicKey,
+          reserve,
           programId,
-          reserve.reserve.liquidity.oraclePubkey
         )
       );
     }

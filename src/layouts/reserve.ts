@@ -67,6 +67,8 @@ export const ReserveLayout: typeof BufferLayout.Structure = BufferLayout.struct(
         BufferLayout.u8('mintDecimals'),
         Layout.publicKey('supplyPubkey'),
         Layout.publicKey('feeReceiver'),
+        // TODO: replace u32 option with generic equivalent
+        BufferLayout.u32('oracleOption'),
         Layout.publicKey('oraclePubkey'),
         Layout.uint64('availableAmount'),
         Layout.uint128('borrowedAmountWads'),

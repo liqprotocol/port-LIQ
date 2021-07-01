@@ -55,7 +55,7 @@ export async function getParsedReservesMap(connection: Connection, programId: Pu
     {
       filters: [
         {
-          dataSize: 571,
+          dataSize: 575,
         }
       ]
     }
