@@ -1,16 +1,17 @@
 import { Account, Connection, PublicKey, Transaction } from "@solana/web3.js"
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { getAllObligations, getParsedReservesMap, sleep } from "./utils";
+import { getAllObligations, getParsedReservesMap, notify, sleep } from "./utils";
 import { Obligation } from "./layouts/obligation";
 import { EnrichedReserve } from "./layouts/reserve";
 import { refreshReserveInstruction } from "./instructions/refreshReserve";
 import { refreshObligationInstruction } from "./instructions/refreshObligation";
 
 async function refreshAllObligations() {
-  const cluster = process.env.CLUSTER || 'devnet'
-  const clusterUrl = process.env.CLUSTER_URL || "https://api.devnet.solana.com"
-  const connection = new Connection(clusterUrl, 'singleGossip')
+  const cluster = process.env.CLUSTER || 'devnet';
+  const clusterUrl = process.env.CLUSTER_URL || "https://api.devnet.solana.com";
+  const connection = new Connection(clusterUrl, 'singleGossip');
+  const checkInterval = parseFloat(process.env.CHECK_INTERVAL || '1000.0');
 
   // The address of the Port Finance on the blockchain
   const programId = new PublicKey(process.env.PROGRAM_ID || "Port7uDYB3wk6GJAw4KT1WpTeMtSu9bTcChBHkX2LfR")
@@ -22,19 +23,31 @@ async function refreshAllObligations() {
   console.log(`refresh obligation bot launched for cluster=${cluster}`);
 
   const parsedReserveMap = await getParsedReservesMap(connection, programId);
-  const obligations = await getAllObligations(connection, programId);
-  console.log("Total obligations that needs to be refreshed ", obligations.length);
-  let counter: number = 0;
-  const totalObligationsCnt: number = obligations.length;
-  console.log("public key: ", payer.publicKey.toBase58())
-  while(counter < totalObligationsCnt) {
-    let nextCounter = Math.min(counter + 15, totalObligationsCnt);
-    await refreshObligations(connection, programId, payer, obligations.slice(counter, nextCounter), parsedReserveMap);
-    counter = nextCounter;
-    if (counter % 300 === 0) {
-      console.log("Completed refreshing %d obligations", counter);
+
+
+  while(true) {
+    try {
+      const obligations = await getAllObligations(connection, programId);
+      console.log("Total obligations that needs to be refreshed ", obligations.length);
+      let counter: number = 0;
+      const totalObligationsCnt: number = obligations.length;
+      console.log("public key: ", payer.publicKey.toBase58())
+      while(counter < totalObligationsCnt) {
+        let nextCounter = Math.min(counter + 15, totalObligationsCnt);
+        await refreshObligations(connection, programId, payer, obligations.slice(counter, nextCounter), parsedReserveMap);
+        counter = nextCounter;
+        if (counter % 300 === 0) {
+          console.log("Completed refreshing %d obligations", counter);
+        }
+        sleep(2000);
+      }
+      console.log("Completed refreshing obligation.")
+    } catch (e) {
+      notify(`unknown error: ${e}`);
+      console.error(e);
+    } finally {
+      await sleep(checkInterval);
     }
-    sleep(2000);
   }
 
 }
@@ -46,7 +59,6 @@ async function refreshObligations(connection: Connection, programId: PublicKey, 
       transaction.add(
         refreshReserveInstruction(
           reserve,
-          programId,
         )
       );
     }
@@ -58,7 +70,6 @@ async function refreshObligations(connection: Connection, programId: PublicKey, 
         obligation.publicKey,
         obligation.deposits.map(deposit => deposit.depositReserve),
         obligation.borrows.map(borrow => borrow.borrowReserve),
-        programId
       ),
     );
   }
