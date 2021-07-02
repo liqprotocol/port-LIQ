@@ -183,7 +183,7 @@ export function createUninitializedAccount(
   return account.publicKey;
 }
 
-async function getAssetPrice(symbol: string): Promise<number> {
+export async function getAssetPrice(symbol: string): Promise<number> {
   const res = await axios.get(
     `https://ftx.com/api/markets/${symbol}/USD`
   );

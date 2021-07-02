@@ -1,7 +1,7 @@
 import { Account, Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { findLargestTokenAccountForOwner, getAllObligations, getParsedReservesMap, notify, sleep, Wallet } from './utils';
+import { findLargestTokenAccountForOwner, getAllObligations, getAssetPrice, getParsedReservesMap, notify, sleep, Wallet } from './utils';
 import BN = require('bn.js');
 import { Obligation } from './layouts/obligation';
 import { EnrichedReserve} from './layouts/reserve';
@@ -189,10 +189,10 @@ async function repayToken() {
 
 async function getLiquidatedObligations(connection: Connection, programId: PublicKey) {
   const obligations = await getAllObligations(connection, programId)
-  
+  let solPrice = await getAssetPrice("SOL");
   return obligations
     .filter(
-      obligation => obligation.unhealthyBorrowValue.lt(obligation.borrowedValue)
+      obligation => isUnhealthy(obligation, solPrice)
     );
 }
 
@@ -201,23 +201,23 @@ function isUnhealthy(obligation: Obligation, solPrice: number) {
   for (const borrow of obligation.borrows) {
     if (borrow.borrowReserve.toBase58() === "DQAVq1c8P16W9anarxoH5M8DFsj1LKpMuWGNvDHUcp7W") {
       // WAD 18 decimal + SOL 9 decimals
-      loanValue += borrow.borrowedAmountWads.div(new BN("1000000000000000000000000000", 10)).toNumber() * solPrice;
+      loanValue += borrow.borrowedAmountWads.div(new BN("10000000000000000000000000", 10)).toNumber() / 100 * solPrice;
     } else if (borrow.borrowReserve.toBase58() === "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq") {
       // WAD 18 decimal + USDC 6 decimals
-      loanValue += borrow.borrowedAmountWads.div(new BN("1000000000000000000000000", 10)).toNumber() * 1;
+      loanValue += borrow.borrowedAmountWads.div(new BN("10000000000000000000000", 10)).toNumber() / 100 * 1;
     }
   }
 
   let collateralValue = 0
   for (const deposit of obligation.deposits) {
     if (deposit.depositReserve.toBase58() === "DQAVq1c8P16W9anarxoH5M8DFsj1LKpMuWGNvDHUcp7W") {
-      collateralValue += deposit.depositedAmount.div(new BN("1000000000", 10)).toNumber() * solPrice * 0.9;
+      collateralValue += deposit.depositedAmount.div(new BN("10000000", 10)).toNumber() / 100 * solPrice * 0.9;
     } else if (deposit.depositReserve.toBase58() === "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq") {
-      collateralValue += deposit.depositedAmount.div(new BN("1000000", 10)).toNumber() * 1 * 0.95;
+      collateralValue += deposit.depositedAmount.div(new BN("10000", 10)).toNumber() / 100 * 1 * 0.95;
     }
   }
 
-  return collateralValue < loanValue;
+  return 0 < collateralValue && collateralValue <= loanValue;
 }
 
 runPartialLiquidator()
