@@ -196,5 +196,29 @@ async function getLiquidatedObligations(connection: Connection, programId: Publi
     );
 }
 
+function isUnhealthy(obligation: Obligation, solPrice: number) {
+  let loanValue = 0;
+  for (const borrow of obligation.borrows) {
+    if (borrow.borrowReserve.toBase58() === "DQAVq1c8P16W9anarxoH5M8DFsj1LKpMuWGNvDHUcp7W") {
+      // WAD 18 decimal + SOL 9 decimals
+      loanValue += borrow.borrowedAmountWads.div(new BN("1000000000000000000000000000", 10)).toNumber() * solPrice;
+    } else if (borrow.borrowReserve.toBase58() === "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq") {
+      // WAD 18 decimal + USDC 6 decimals
+      loanValue += borrow.borrowedAmountWads.div(new BN("1000000000000000000000000", 10)).toNumber() * 1;
+    }
+  }
+
+  let collateralValue = 0
+  for (const deposit of obligation.deposits) {
+    if (deposit.depositReserve.toBase58() === "DQAVq1c8P16W9anarxoH5M8DFsj1LKpMuWGNvDHUcp7W") {
+      collateralValue += deposit.depositedAmount.div(new BN("1000000000", 10)).toNumber() * solPrice * 0.9;
+    } else if (deposit.depositReserve.toBase58() === "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq") {
+      collateralValue += deposit.depositedAmount.div(new BN("1000000", 10)).toNumber() * 1 * 0.95;
+    }
+  }
+
+  return collateralValue < loanValue;
+}
+
 runPartialLiquidator()
 
