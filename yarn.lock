@@ -541,10 +541,10 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@project-serum/serum@^0.13.20":
-  version "0.13.38"
-  resolved "https://registry.yarnpkg.com/@project-serum/serum/-/serum-0.13.38.tgz#ef50a0f50bd69fd7b51309fbb44ad995a1e6e210"
-  integrity sha512-TOph1Hxoi5kOUg72tWbbNGviqBw29SrP4BH70gXtqUDiFTQJLrE2yfS5HC7p0JaU8p9WdrYGnxcFKCddZJ3ing==
+"@project-serum/serum@^0.13.41":
+  version "0.13.41"
+  resolved "https://registry.yarnpkg.com/@project-serum/serum/-/serum-0.13.41.tgz#bd0a0605719ee5a947f5a0f66593ef814030217d"
+  integrity sha512-LhM/xRBpj+AQxmIZF+JGjFZhIeROvJUdoU/mcizotMN0RgY22qobwIPAEtqGbL4gmb8x8+8/+QEqxcae5cvR1A==
   dependencies:
     "@solana/web3.js" "^0.90.0"
     bn.js "^5.1.2"
@@ -622,10 +622,10 @@
     tweetnacl "^1.0.0"
     ws "^7.0.0"
 
-"@solana/web3.js@^1.5.0":
-  version "1.17.0"
-  resolved "https://registry.yarnpkg.com/@solana/web3.js/-/web3.js-1.17.0.tgz#51775bd17af77132450c22ac175870d4a9721b9b"
-  integrity sha512-PBOHY260CudciLwBgwt1U8upwCS1Jq0BbS6EVyX0tz6Tj14Dp4i87dQNyntentNiGQQ+yWBIk4vJEm+PMCSd/A==
+"@solana/web3.js@^1.20.0":
+  version "1.20.0"
+  resolved "https://registry.yarnpkg.com/@solana/web3.js/-/web3.js-1.20.0.tgz#9a1855a239c96c5b946bdbe4cc5e3768ee3b2a77"
+  integrity sha512-s/hmbeC7h0QeMKDHl5HTJbY4NSrT3IK1oGerNwdmFfnbs9ygtBbXo1MXaeYVDcNazsthKgiYE+unNd+cpVH8HA==
   dependencies:
     "@babel/runtime" "^7.12.5"
     bn.js "^5.0.0"

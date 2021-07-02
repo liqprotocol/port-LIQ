@@ -10,6 +10,7 @@ import { refreshObligationInstruction } from './instructions/refreshObligation';
 import { liquidateObligationInstruction } from './instructions/liquidateObligation';
 import { Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { redeemReserveCollateralInstruction } from './instructions/redeemReserveCollateral';
+import axios from 'axios';
 
 async function runPartialLiquidator() {
   const cluster = process.env.CLUSTER || 'devnet'
