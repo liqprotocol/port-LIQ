@@ -10,7 +10,6 @@ import { refreshObligationInstruction } from './instructions/refreshObligation';
 import { liquidateObligationInstruction } from './instructions/liquidateObligation';
 import { Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { redeemReserveCollateralInstruction } from './instructions/redeemReserveCollateral';
-import axios from 'axios';
 
 async function runPartialLiquidator() {
   const cluster = process.env.CLUSTER || 'devnet'
@@ -97,8 +96,9 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
     return;
   }
 
-  if (!wallets.has(repayReserve.reserve.liquidity.mintPubkey.toBase58()) || 
-      !wallets.has(withdrawReserve.reserve.collateral.mintPubkey.toBase58())) {
+  if (repayReserve.reserve.liquidity.mintPubkey.toBase58() != "So11111111111111111111111111111111111111112" && (
+      !wallets.has(repayReserve.reserve.liquidity.mintPubkey.toBase58()) ||
+            !wallets.has(withdrawReserve.reserve.collateral.mintPubkey.toBase58()))) {
     return;
   }
   
@@ -139,7 +139,12 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
 
   const tokenwallet = await findLargestTokenAccountForOwner(connection, payer, withdrawReserve.reserve.collateral.mintPubkey);
 
-  transaction = new Transaction();
+  await redeemCollateral(wallets, withdrawReserve, transferAuthority, payer, tokenwallet, lendingMarketAuthority, connection);
+
+}
+
+async function redeemCollateral(wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet; }>, withdrawReserve: EnrichedReserve, transferAuthority: Account, payer: Account, tokenwallet: { publicKey: PublicKey; tokenAccount: Wallet; }, lendingMarketAuthority: PublicKey, connection: Connection) {
+  const transaction = new Transaction();
   transaction.add(
     Token.createApproveInstruction(
       TOKEN_PROGRAM_ID,
@@ -147,7 +152,7 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
       transferAuthority.publicKey,
       payer.publicKey,
       [],
-      1000000000000,
+      1000000000000
     ),
     redeemReserveCollateralInstruction(
       tokenwallet.tokenAccount.amount,
@@ -158,21 +163,28 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
       withdrawReserve.reserve.liquidity.supplyPubkey,
       withdrawReserve.reserve.lendingMarket,
       lendingMarketAuthority,
-      transferAuthority.publicKey,
+      transferAuthority.publicKey
     )
-  )
-  
+  );
+
   const redeemSig = await connection.sendTransaction(
     transaction,
-    [payer, transferAuthority],
+    [payer, transferAuthority]
   );
 
   console.log(`Redeem reserve collateral: ${redeemSig}.`);
-
 }
 
 async function sellToken(tokenAccount: Wallet) {
+  // TODO: repay SOL
+}
 
+async function repaySOL() {
+  // TODO
+}
+
+async function repayToken() {
+  // TODO
 }
 
 async function getLiquidatedObligations(connection: Connection, programId: PublicKey) {
