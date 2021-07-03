@@ -1,7 +1,7 @@
 import { Account, Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { findLargestTokenAccountForOwner, getAllObligations, getAssetPrice, getParsedReservesMap, notify, sleep, Wallet } from './utils';
+import { findLargestTokenAccountForOwner, getAllObligations, getAssetPrice, getParsedReservesMap, getUnixTs, notify, sleep, Wallet } from './utils';
 import BN = require('bn.js');
 import { Obligation } from './layouts/obligation';
 import { EnrichedReserve} from './layouts/reserve';
@@ -51,7 +51,7 @@ async function runPartialLiquidator() {
     try {
 
       const liquidatedAccounts = await getLiquidatedObligations(connection, programId);
-      console.log(`payer account ${payer.publicKey.toBase58()}, we have ${liquidatedAccounts.length} accounts for liquidation`)
+      console.log(`Time: ${getUnixTs()} payer account ${payer.publicKey.toBase58()}, we have ${liquidatedAccounts.length} accounts for liquidation`)
       for (const liquidatedAccount of liquidatedAccounts) {
         notify(
           `Liquidating obligation account ${liquidatedAccount.publicKey.toBase58()} which is owned by ${liquidatedAccount.owner.toBase58()}
