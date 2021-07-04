@@ -167,7 +167,6 @@ export function createUninitializedAccount(
   signers: Account[],
 ) {
   const account = new Account();
-  console.log("amount: ", amount)
   instructions.push(
     SystemProgram.createAccount({
       fromPubkey: payer,

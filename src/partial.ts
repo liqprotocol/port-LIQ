@@ -1,4 +1,4 @@
-import { Account, Connection, PublicKey, Transaction } from '@solana/web3.js';
+import { Account, Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
 import { findLargestTokenAccountForOwner, getAllObligations, getAssetPrice, getParsedReservesMap, getUnixTs, notify, sleep, Wallet } from './utils';
@@ -8,7 +8,7 @@ import { EnrichedReserve} from './layouts/reserve';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
 import { refreshObligationInstruction } from './instructions/refreshObligation';
 import { liquidateObligationInstruction } from './instructions/liquidateObligation';
-import { Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { AccountLayout, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { redeemReserveCollateralInstruction } from './instructions/redeemReserveCollateral';
 
 async function runPartialLiquidator() {
@@ -50,7 +50,7 @@ async function runPartialLiquidator() {
   while (true) {
     try {
 
-      const liquidatedAccounts = await getLiquidatedObligations(connection, programId);
+      const liquidatedAccounts = await getUnhealthyObligations(connection, programId);
       console.log(`Time: ${getUnixTs()} payer account ${payer.publicKey.toBase58()}, we have ${liquidatedAccounts.length} accounts for liquidation`)
       for (const liquidatedAccount of liquidatedAccounts) {
         notify(
@@ -68,6 +68,40 @@ async function runPartialLiquidator() {
     // break;
   }
 
+}
+
+async function getUnhealthyObligations(connection: Connection, programId: PublicKey) {
+  const obligations = await getAllObligations(connection, programId)
+  let solPrice = await getAssetPrice("SOL");
+  console.log(`Total number of obligations are: ${obligations.length}`)
+  return obligations
+    .filter(
+      obligation => isObligationUnhealthy(obligation, solPrice)
+    );
+}
+
+function isObligationUnhealthy(obligation: Obligation, solPrice: number) {
+  let loanValue = 0;
+  for (const borrow of obligation.borrows) {
+    if (borrow.borrowReserve.toBase58() === "DQAVq1c8P16W9anarxoH5M8DFsj1LKpMuWGNvDHUcp7W") {
+      // WAD 18 decimal + SOL 9 decimals
+      loanValue += borrow.borrowedAmountWads.div(new BN("10000000000000000000000000", 10)).toNumber() / 100 * solPrice;
+    } else if (borrow.borrowReserve.toBase58() === "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq") {
+      // WAD 18 decimal + USDC 6 decimals
+      loanValue += borrow.borrowedAmountWads.div(new BN("10000000000000000000000", 10)).toNumber() / 100 * 1;
+    }
+  }
+
+  let collateralValue = 0
+  for (const deposit of obligation.deposits) {
+    if (deposit.depositReserve.toBase58() === "DQAVq1c8P16W9anarxoH5M8DFsj1LKpMuWGNvDHUcp7W") {
+      collateralValue += deposit.depositedAmount.div(new BN("10000000", 10)).toNumber() / 100 * solPrice * 0.9;
+    } else if (deposit.depositReserve.toBase58() === "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq") {
+      collateralValue += deposit.depositedAmount.div(new BN("10000", 10)).toNumber() / 100 * 1 * 0.95;
+    }
+  }
+
+  return 0 < collateralValue && collateralValue <= loanValue;
 }
 
 async function liquidateAccount(connection: Connection, programId: PublicKey, payer: Account, obligation: Obligation, parsedReserveMap: Map<string, EnrichedReserve>, wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }>) {
@@ -90,7 +124,6 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
   const repayReserve: EnrichedReserve | undefined = parsedReserveMap.get(obligation.borrows[0].borrowReserve.toBase58());
   const withdrawReserve: EnrichedReserve | undefined = parsedReserveMap.get(obligation.deposits[0].depositReserve.toBase58());
   
-  const transferAuthority = new Account();
   
   if (!repayReserve || !withdrawReserve) {
     return;
@@ -102,35 +135,32 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
     return;
   }
   
-  transaction.add(
-    refreshObligationInstruction(
-      obligation.publicKey,
-      obligation.deposits.map(deposit => deposit.depositReserve),
-      obligation.borrows.map(borrow => borrow.borrowReserve),
-    ),
-    Token.createApproveInstruction(
-      TOKEN_PROGRAM_ID,
+
+
+  const transferAuthority = repayReserve.reserve.liquidity.mintPubkey.toBase58() != "So11111111111111111111111111111111111111112" ?
+    liquidateByPayingToken(
+      transaction,
       wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey,
-      transferAuthority.publicKey,
-      payer.publicKey,
-      [],
-      1000000000000,
-    ),
-    liquidateObligationInstruction(
-      // u64 MAX for all borrowed amount
-      new BN('18446744073709551615', 10),
-      wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey,
-      wallets.get(withdrawReserve.reserve.collateral.mintPubkey.toBase58())!.publicKey!,
-      repayReserve.publicKey,
-      repayReserve.reserve.liquidity.supplyPubkey,
-      withdrawReserve.publicKey,
-      withdrawReserve.reserve.collateral.supplyPubkey,
-      obligation.publicKey,
+      wallets.get(withdrawReserve.reserve.collateral.mintPubkey.toBase58())!.publicKey,
+      repayReserve,
+      withdrawReserve,
+      obligation,
       lendingMarket,
       lendingMarketAuthority,
-      transferAuthority.publicKey,
-    ),
-  );
+      payer
+    ) :
+    liquidateByPayingSOL(
+      transaction,
+      10000000000,
+      wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey,
+      repayReserve,
+      withdrawReserve,
+      obligation,
+      lendingMarket,
+      lendingMarketAuthority,
+      payer
+    );
+
   const sig = await connection.sendTransaction(
     transaction,
     [payer, transferAuthority],
@@ -139,12 +169,115 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
 
   const tokenwallet = await findLargestTokenAccountForOwner(connection, payer, withdrawReserve.reserve.collateral.mintPubkey);
 
-  await redeemCollateral(wallets, withdrawReserve, transferAuthority, payer, tokenwallet, lendingMarketAuthority, connection);
+  await redeemCollateral(wallets, withdrawReserve, payer, tokenwallet, lendingMarketAuthority, connection);
 
 }
 
-async function redeemCollateral(wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet; }>, withdrawReserve: EnrichedReserve, transferAuthority: Account, payer: Account, tokenwallet: { publicKey: PublicKey; tokenAccount: Wallet; }, lendingMarketAuthority: PublicKey, connection: Connection) {
+function liquidateByPayingSOL(
+  transaction: Transaction,
+  solBalance: number,
+  withdrawWallet: PublicKey,
+  repayReserve: EnrichedReserve,
+  withdrawReserve: EnrichedReserve,
+  obligation: Obligation,
+  lendingMarket: PublicKey,
+  lendingMarketAuthority: PublicKey,
+  payer: Account,
+) {
+  const wrappedSOLTokenAccount = new Account();
+  transaction.add(
+    SystemProgram.createAccount(
+      {
+        fromPubkey: payer.publicKey,
+        newAccountPubkey: wrappedSOLTokenAccount.publicKey,
+        lamports: solBalance - 1000000000,
+        space: AccountLayout.span,
+        programId: new PublicKey(TOKEN_PROGRAM_ID),
+      }
+    ),
+    Token.createInitAccountInstruction(
+      new PublicKey(TOKEN_PROGRAM_ID),
+      new PublicKey("So11111111111111111111111111111111111111112"),
+      wrappedSOLTokenAccount.publicKey,
+      payer.publicKey
+    )
+  );
+
+  const transferAuthority = liquidateByPayingToken(
+    transaction,
+    wrappedSOLTokenAccount.publicKey,
+    withdrawWallet,
+    repayReserve,
+    withdrawReserve,
+    obligation,
+    lendingMarket,
+    lendingMarketAuthority,
+    payer
+  );
+
+  transaction.add(
+    Token.createCloseAccountInstruction(
+      TOKEN_PROGRAM_ID,
+      wrappedSOLTokenAccount.publicKey,
+      payer.publicKey,
+      payer.publicKey,
+      [],
+    )
+  );
+
+  return transferAuthority;
+}
+
+function liquidateByPayingToken(
+  transaction: Transaction,
+  repayWallet: PublicKey,
+  withdrawWallet: PublicKey,
+  repayReserve: EnrichedReserve,
+  withdrawReserve: EnrichedReserve,
+  obligation: Obligation,
+  lendingMarket: PublicKey,
+  lendingMarketAuthority: PublicKey,
+  payer: Account,
+) {
+
+    const transferAuthority = new Account();
+
+    transaction.add(
+      refreshObligationInstruction(
+        obligation.publicKey,
+        obligation.deposits.map(deposit => deposit.depositReserve),
+        obligation.borrows.map(borrow => borrow.borrowReserve),
+      ),
+      Token.createApproveInstruction(
+        TOKEN_PROGRAM_ID,
+        repayWallet,
+        transferAuthority.publicKey,
+        payer.publicKey,
+        [],
+        1000000000000,
+      ),
+      liquidateObligationInstruction(
+        // u64 MAX for all borrowed amount
+        new BN('18446744073709551615', 10),
+        repayWallet,
+        withdrawWallet,
+        repayReserve.publicKey,
+        repayReserve.reserve.liquidity.supplyPubkey,
+        withdrawReserve.publicKey,
+        withdrawReserve.reserve.collateral.supplyPubkey,
+        obligation.publicKey,
+        lendingMarket,
+        lendingMarketAuthority,
+        transferAuthority.publicKey,
+      ),
+    );
+
+    return transferAuthority;
+}
+
+async function redeemCollateral(wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet; }>, withdrawReserve: EnrichedReserve, payer: Account, tokenwallet: { publicKey: PublicKey; tokenAccount: Wallet; }, lendingMarketAuthority: PublicKey, connection: Connection) {
   const transaction = new Transaction();
+  const transferAuthority = new Account();
   transaction.add(
     Token.createApproveInstruction(
       TOKEN_PROGRAM_ID,
@@ -177,48 +310,6 @@ async function redeemCollateral(wallets: Map<string, { publicKey: PublicKey; tok
 
 async function sellToken(tokenAccount: Wallet) {
   // TODO: repay SOL
-}
-
-async function repaySOL() {
-  // TODO
-}
-
-async function repayToken() {
-  // TODO
-}
-
-async function getLiquidatedObligations(connection: Connection, programId: PublicKey) {
-  const obligations = await getAllObligations(connection, programId)
-  let solPrice = await getAssetPrice("SOL");
-  console.log(`Total number of obligations are: ${obligations.length}`)
-  return obligations
-    .filter(
-      obligation => isUnhealthy(obligation, solPrice)
-    );
-}
-
-function isUnhealthy(obligation: Obligation, solPrice: number) {
-  let loanValue = 0;
-  for (const borrow of obligation.borrows) {
-    if (borrow.borrowReserve.toBase58() === "DQAVq1c8P16W9anarxoH5M8DFsj1LKpMuWGNvDHUcp7W") {
-      // WAD 18 decimal + SOL 9 decimals
-      loanValue += borrow.borrowedAmountWads.div(new BN("10000000000000000000000000", 10)).toNumber() / 100 * solPrice;
-    } else if (borrow.borrowReserve.toBase58() === "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq") {
-      // WAD 18 decimal + USDC 6 decimals
-      loanValue += borrow.borrowedAmountWads.div(new BN("10000000000000000000000", 10)).toNumber() / 100 * 1;
-    }
-  }
-
-  let collateralValue = 0
-  for (const deposit of obligation.deposits) {
-    if (deposit.depositReserve.toBase58() === "DQAVq1c8P16W9anarxoH5M8DFsj1LKpMuWGNvDHUcp7W") {
-      collateralValue += deposit.depositedAmount.div(new BN("10000000", 10)).toNumber() / 100 * solPrice * 0.9;
-    } else if (deposit.depositReserve.toBase58() === "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq") {
-      collateralValue += deposit.depositedAmount.div(new BN("10000", 10)).toNumber() / 100 * 1 * 0.95;
-    }
-  }
-
-  return 0 < collateralValue && collateralValue <= loanValue;
 }
 
 runPartialLiquidator()
