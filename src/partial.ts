@@ -190,6 +190,7 @@ async function repayToken() {
 async function getLiquidatedObligations(connection: Connection, programId: PublicKey) {
   const obligations = await getAllObligations(connection, programId)
   let solPrice = await getAssetPrice("SOL");
+  console.log(`Total number of obligations are: ${obligations.length}`)
   return obligations
     .filter(
       obligation => isUnhealthy(obligation, solPrice)
