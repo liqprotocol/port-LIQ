@@ -81,7 +81,7 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
         return obligation2.riskFactor - obligation1.riskFactor;
       }
     );
-  console.log(`Total number of obligations are: ${obligations.length}, the two with highest risk factors are: ${sortedObligations.slice(0,2).map(obligation => obligation.riskFactor)}`);
+  console.log(`Total number of obligations are: ${obligations.length}, the two with highest risk factors are: ${sortedObligations.slice(0,2).map(obligation => obligation.riskFactor.toFixed(2))}, current SOL price is ${solPrice}`);
   return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
 }
 
