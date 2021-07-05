@@ -1,7 +1,7 @@
 import { Account, Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { findLargestTokenAccountForOwner, getAllObligations, getAssetPrice, getParsedReservesMap, getUnixTs, notify, sleep, Wallet } from './utils';
+import { findLargestTokenAccountForOwner, getAllObligations, getAssetPrice, getParsedReservesMap, getUnixTs, lamportToNumber, notify, sleep, wadToLamport, Wallet } from './utils';
 import BN = require('bn.js');
 import { EnrichedObligation, Obligation } from './layouts/obligation';
 import { EnrichedReserve} from './layouts/reserve';
@@ -90,22 +90,23 @@ const USD_RESERVE_PUBKEY = "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq";
 
 function generateEnrichedObligation(obligation: Obligation, solPrice: number): EnrichedObligation {
   let loanValue = 0.0;
+  const usdcPrice = 1;
   for (const borrow of obligation.borrows) {
     if (borrow.borrowReserve.toBase58() === SOL_RESERVE_PUBKEY) {
-      // WAD 18 decimal + SOL 9 decimals
-      loanValue += borrow.borrowedAmountWads.div(new BN("10000000000000000000000000", 10)).toNumber() / 100 * solPrice;
+      // SOL 9 decimals
+      loanValue += lamportToNumber(wadToLamport(borrow.borrowedAmountWads), 9) * solPrice;
     } else if (borrow.borrowReserve.toBase58() === USD_RESERVE_PUBKEY) {
-      // WAD 18 decimal + USDC 6 decimals
-      loanValue += borrow.borrowedAmountWads.div(new BN("10000000000000000000000", 10)).toNumber() / 100 * 1;
+      // USDC 6 decimals
+      loanValue += lamportToNumber(wadToLamport(borrow.borrowedAmountWads), 6) * usdcPrice;
     }
   }
 
   let collateralValue = 0.0;
   for (const deposit of obligation.deposits) {
     if (deposit.depositReserve.toBase58() === SOL_RESERVE_PUBKEY) {
-      collateralValue += deposit.depositedAmount.div(new BN("10000000", 10)).toNumber() / 100 * solPrice * 0.9;
+      collateralValue += lamportToNumber(deposit.depositedAmount, 9) * solPrice * 0.9;
     } else if (deposit.depositReserve.toBase58() === USD_RESERVE_PUBKEY) {
-      collateralValue += deposit.depositedAmount.div(new BN("10000", 10)).toNumber() / 100 * 1 * 0.95;
+      collateralValue += lamportToNumber(deposit.depositedAmount, 6) * usdcPrice * 0.95;
     }
   }
 

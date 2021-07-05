@@ -6,6 +6,7 @@ import { EnrichedReserve, ReserveParser } from './layouts/reserve';
 import { AccountLayout, Token } from '@solana/spl-token';
 import { TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from './ids';
+import BN from 'bn.js';
 
 export function notify(content: string) {
   if (process.env.WEBHOOK_URL) {
@@ -187,6 +188,20 @@ export async function getAssetPrice(symbol: string): Promise<number> {
     `https://ftx.com/api/markets/${symbol}/USD`
   );
   return res["data"]["result"]["last"];
+}
+
+const TEN = new BN("10", 10);
+const WAD = TEN.pow(new BN(18));
+export function wadToLamport(wad: BN): BN {
+  return wad.div(WAD);
+}
+
+export function lamportToNumber(lamport: BN, mintDecimals: number): number {
+  const precision = 2;
+  if (mintDecimals < precision) {
+    throw new Error(`Mint decimal is ${mintDecimals} which is too small`);
+  }
+  return lamport.div(TEN.pow(new BN(mintDecimals - precision))).toNumber() / Math.pow(10, precision);
 }
 
 export function parseTokenAccountData(
