@@ -61,6 +61,11 @@ export interface ProtoObligation {
   dataFlat: Buffer;
 }
 
+export interface EnrichedObligation {
+  riskFactor: number;
+  obligation: Obligation;
+}
+
 export interface Obligation {
   publicKey: PublicKey;
   version: number;

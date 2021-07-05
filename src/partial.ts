@@ -3,7 +3,7 @@ import { homedir } from 'os';
 import * as fs from 'fs';
 import { findLargestTokenAccountForOwner, getAllObligations, getAssetPrice, getParsedReservesMap, getUnixTs, notify, sleep, Wallet } from './utils';
 import BN = require('bn.js');
-import { Obligation } from './layouts/obligation';
+import { EnrichedObligation, Obligation } from './layouts/obligation';
 import { EnrichedReserve} from './layouts/reserve';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
 import { refreshObligationInstruction } from './instructions/refreshObligation';
@@ -55,9 +55,9 @@ async function runPartialLiquidator() {
       console.log(`Time: ${getUnixTs()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
       for (const unhealthyObligation of unhealthyObligations) {
         notify(
-          `Liquidating obligation account ${unhealthyObligation.publicKey.toBase58()} which is owned by ${unhealthyObligation.owner.toBase58()}
-           which has borrowed ${unhealthyObligation.borrowedValue} with liquidation borrowed value at ${unhealthyObligation.unhealthyBorrowValue} ...`)
-        await liquidateAccount(connection, programId, payer, unhealthyObligation, parsedReserveMap, wallets);
+          `Liquidating obligation account ${unhealthyObligation.obligation.publicKey.toBase58()} which is owned by ${unhealthyObligation.obligation.owner.toBase58()}
+           which has borrowed ${unhealthyObligation.obligation.borrowedValue} with liquidation borrowed value at ${unhealthyObligation.obligation.unhealthyBorrowValue} ...`)
+        await liquidateAccount(connection, programId, payer, unhealthyObligation.obligation, parsedReserveMap, wallets);
       }
 
     } catch (e) {
@@ -74,17 +74,22 @@ async function runPartialLiquidator() {
 async function getUnhealthyObligations(connection: Connection, programId: PublicKey) {
   const obligations = await getAllObligations(connection, programId)
   let solPrice = await getAssetPrice("SOL");
-  console.log(`Total number of obligations are: ${obligations.length}`)
-  return obligations
-    .filter(
-      obligation => isObligationUnhealthy(obligation, solPrice)
+  const sortedObligations =  obligations
+    .map(obligation => generateEnrichedObligation(obligation, solPrice))
+    .sort(
+      (obligation1, obligation2) => {
+        return obligation2.riskFactor - obligation1.riskFactor;
+      }
     );
+  console.log(`Total number of obligations are: ${obligations.length}, the two with highest risk factors are: ${sortedObligations.slice(0,2).map(obligation => obligation.riskFactor)}`);
+  return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
 }
 
 const SOL_RESERVE_PUBKEY = "DQAVq1c8P16W9anarxoH5M8DFsj1LKpMuWGNvDHUcp7W";
 const USD_RESERVE_PUBKEY = "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq";
-function isObligationUnhealthy(obligation: Obligation, solPrice: number) {
-  let loanValue = 0;
+
+function generateEnrichedObligation(obligation: Obligation, solPrice: number): EnrichedObligation {
+  let loanValue = 0.0;
   for (const borrow of obligation.borrows) {
     if (borrow.borrowReserve.toBase58() === SOL_RESERVE_PUBKEY) {
       // WAD 18 decimal + SOL 9 decimals
@@ -95,7 +100,7 @@ function isObligationUnhealthy(obligation: Obligation, solPrice: number) {
     }
   }
 
-  let collateralValue = 0
+  let collateralValue = 0.0;
   for (const deposit of obligation.deposits) {
     if (deposit.depositReserve.toBase58() === SOL_RESERVE_PUBKEY) {
       collateralValue += deposit.depositedAmount.div(new BN("10000000", 10)).toNumber() / 100 * solPrice * 0.9;
@@ -104,7 +109,11 @@ function isObligationUnhealthy(obligation: Obligation, solPrice: number) {
     }
   }
 
-  return 0 < collateralValue && collateralValue <= loanValue;
+  const riskFactor = (collateralValue === 0 || loanValue === 0) ? 0 : loanValue / collateralValue;
+  return {
+    riskFactor,
+    obligation
+  }
 }
 
 async function liquidateAccount(
@@ -314,7 +323,7 @@ async function redeemCollateral(wallets: Map<string, { publicKey: PublicKey; tok
 }
 
 async function sellToken(tokenAccount: Wallet) {
-  // TODO: repay SOL
+  // TODO: sell token using Serum or Raydium
 }
 
 runPartialLiquidator()
