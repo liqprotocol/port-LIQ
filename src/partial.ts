@@ -23,7 +23,7 @@ async function runPartialLiquidator() {
   const programId = new PublicKey(process.env.PROGRAM_ID || "Port7uDYB3wk6GJAw4KT1WpTeMtSu9bTcChBHkX2LfR")
 
   // liquidator's keypair
-  const keyPairPath = process.env.KEYPAIR || homedir() + '/.config/solana/id.json'
+  const keyPairPath = process.env.KEYPAIR || `${homedir()}/.config/solana/id.json`
   const payer = new Account(JSON.parse(fs.readFileSync(keyPairPath, 'utf-8')))
 
   console.log(`Port liquidator launched on cluster=${cluster}`);
@@ -34,31 +34,30 @@ async function runPartialLiquidator() {
   parsedReserveMap.forEach(
     (reserve) => reserves.push(reserve)
   );
-  const liquidityWallets = await Promise.all(
+
+  await Promise.all(
     reserves.map(
-      reserve => findLargestTokenAccountForOwner(connection, payer, reserve.reserve.liquidity.mintPubkey)
+      async (reserve) => {
+        wallets.set(
+          reserve.reserve.liquidity.mintPubkey.toBase58(),
+          await findLargestTokenAccountForOwner(connection, payer, reserve.reserve.liquidity.mintPubkey));
+        wallets.set(
+          reserve.reserve.collateral.mintPubkey.toBase58(),
+          await findLargestTokenAccountForOwner(connection, payer, reserve.reserve.collateral.mintPubkey));
+      }
     )
-  );
-  const collateralWallets = await Promise.all(
-    reserves.map(
-      reserve => findLargestTokenAccountForOwner(connection, payer, reserve.reserve.collateral.mintPubkey)
-    )
-  );
-  for (let i = 0; i < reserves.length; i++) {
-    wallets.set(reserves[i].reserve.liquidity.mintPubkey.toBase58(), liquidityWallets[i]);
-    wallets.set(reserves[i].reserve.collateral.mintPubkey.toBase58(), collateralWallets[i]);
-  }
+  )
 
   while (true) {
     try {
 
-      const liquidatedAccounts = await getUnhealthyObligations(connection, programId);
-      console.log(`Time: ${getUnixTs()} payer account ${payer.publicKey.toBase58()}, we have ${liquidatedAccounts.length} accounts for liquidation`)
-      for (const liquidatedAccount of liquidatedAccounts) {
+      const unhealthyObligations = await getUnhealthyObligations(connection, programId);
+      console.log(`Time: ${getUnixTs()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
+      for (const unhealthyObligation of unhealthyObligations) {
         notify(
-          `Liquidating obligation account ${liquidatedAccount.publicKey.toBase58()} which is owned by ${liquidatedAccount.owner.toBase58()}
-           which has borrowed ${liquidatedAccount.borrowedValue} with liquidation borrowed value at ${liquidatedAccount.unhealthyBorrowValue} ...`)
-        await liquidateAccount(connection, programId, payer, liquidatedAccount, parsedReserveMap, wallets);
+          `Liquidating obligation account ${unhealthyObligation.publicKey.toBase58()} which is owned by ${unhealthyObligation.owner.toBase58()}
+           which has borrowed ${unhealthyObligation.borrowedValue} with liquidation borrowed value at ${unhealthyObligation.unhealthyBorrowValue} ...`)
+        await liquidateAccount(connection, programId, payer, unhealthyObligation, parsedReserveMap, wallets);
       }
 
     } catch (e) {
@@ -108,7 +107,9 @@ function isObligationUnhealthy(obligation: Obligation, solPrice: number) {
   return 0 < collateralValue && collateralValue <= loanValue;
 }
 
-async function liquidateAccount(connection: Connection, programId: PublicKey, payer: Account, obligation: Obligation, parsedReserveMap: Map<string, EnrichedReserve>, wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }>) {
+async function liquidateAccount(
+  connection: Connection, programId: PublicKey, payer: Account,
+  obligation: Obligation, parsedReserveMap: Map<string, EnrichedReserve>, wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }>) {
   const lendingMarket: PublicKey = parsedReserveMap.values().next().value.reserve.lendingMarket;
   const [lendingMarketAuthority] = await PublicKey.findProgramAddress(
     [lendingMarket.toBuffer()],
@@ -124,10 +125,10 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
       );
     }
   );
+
   // TODO: choose a more sensible value
   const repayReserve: EnrichedReserve | undefined = parsedReserveMap.get(obligation.borrows[0].borrowReserve.toBase58());
   const withdrawReserve: EnrichedReserve | undefined = parsedReserveMap.get(obligation.deposits[0].depositReserve.toBase58());
-  
   
   if (!repayReserve || !withdrawReserve) {
     return;
@@ -139,7 +140,7 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
     return;
   }
   
-
+  const payerAccount = await connection.getAccountInfo(payer.publicKey);
 
   const transferAuthority = repayReserve.reserve.liquidity.mintPubkey.toBase58() !== SOL_MINT ?
     liquidateByPayingToken(
@@ -155,7 +156,7 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
     ) :
     liquidateByPayingSOL(
       transaction,
-      10000000000,
+      payerAccount!.lamports,
       wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey,
       repayReserve,
       withdrawReserve,
@@ -194,7 +195,7 @@ function liquidateByPayingSOL(
       {
         fromPubkey: payer.publicKey,
         newAccountPubkey: wrappedSOLTokenAccount.publicKey,
-        lamports: solBalance - 1000000000,
+        lamports: solBalance - 1_000_000_000,
         space: AccountLayout.span,
         programId: new PublicKey(TOKEN_PROGRAM_ID),
       }
@@ -289,7 +290,7 @@ async function redeemCollateral(wallets: Map<string, { publicKey: PublicKey; tok
       transferAuthority.publicKey,
       payer.publicKey,
       [],
-      1000000000000
+      1_000_000_000_000
     ),
     redeemReserveCollateralInstruction(
       tokenwallet.tokenAccount.amount,
