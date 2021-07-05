@@ -11,6 +11,8 @@ import { liquidateObligationInstruction } from './instructions/liquidateObligati
 import { AccountLayout, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { redeemReserveCollateralInstruction } from './instructions/redeemReserveCollateral';
 
+const SOL_MINT = "So11111111111111111111111111111111111111112";
+
 async function runPartialLiquidator() {
   const cluster = process.env.CLUSTER || 'devnet'
   const clusterUrl = process.env.CLUSTER_URL || "https://api.devnet.solana.com"
@@ -24,7 +26,7 @@ async function runPartialLiquidator() {
   const keyPairPath = process.env.KEYPAIR || homedir() + '/.config/solana/id.json'
   const payer = new Account(JSON.parse(fs.readFileSync(keyPairPath, 'utf-8')))
 
-  console.log(`partial liquidator launched cluster=${cluster}`);
+  console.log(`Port liquidator launched on cluster=${cluster}`);
 
   const parsedReserveMap = await getParsedReservesMap(connection, programId);
   const wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }> = new Map();
@@ -80,13 +82,15 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
     );
 }
 
+const SOL_RESERVE_PUBKEY = "DQAVq1c8P16W9anarxoH5M8DFsj1LKpMuWGNvDHUcp7W";
+const USD_RESERVE_PUBKEY = "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq";
 function isObligationUnhealthy(obligation: Obligation, solPrice: number) {
   let loanValue = 0;
   for (const borrow of obligation.borrows) {
-    if (borrow.borrowReserve.toBase58() === "DQAVq1c8P16W9anarxoH5M8DFsj1LKpMuWGNvDHUcp7W") {
+    if (borrow.borrowReserve.toBase58() === SOL_RESERVE_PUBKEY) {
       // WAD 18 decimal + SOL 9 decimals
       loanValue += borrow.borrowedAmountWads.div(new BN("10000000000000000000000000", 10)).toNumber() / 100 * solPrice;
-    } else if (borrow.borrowReserve.toBase58() === "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq") {
+    } else if (borrow.borrowReserve.toBase58() === USD_RESERVE_PUBKEY) {
       // WAD 18 decimal + USDC 6 decimals
       loanValue += borrow.borrowedAmountWads.div(new BN("10000000000000000000000", 10)).toNumber() / 100 * 1;
     }
@@ -94,9 +98,9 @@ function isObligationUnhealthy(obligation: Obligation, solPrice: number) {
 
   let collateralValue = 0
   for (const deposit of obligation.deposits) {
-    if (deposit.depositReserve.toBase58() === "DQAVq1c8P16W9anarxoH5M8DFsj1LKpMuWGNvDHUcp7W") {
+    if (deposit.depositReserve.toBase58() === SOL_RESERVE_PUBKEY) {
       collateralValue += deposit.depositedAmount.div(new BN("10000000", 10)).toNumber() / 100 * solPrice * 0.9;
-    } else if (deposit.depositReserve.toBase58() === "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq") {
+    } else if (deposit.depositReserve.toBase58() === USD_RESERVE_PUBKEY) {
       collateralValue += deposit.depositedAmount.div(new BN("10000", 10)).toNumber() / 100 * 1 * 0.95;
     }
   }
@@ -129,7 +133,7 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
     return;
   }
 
-  if (repayReserve.reserve.liquidity.mintPubkey.toBase58() != "So11111111111111111111111111111111111111112" && (
+  if (repayReserve.reserve.liquidity.mintPubkey.toBase58() !== SOL_MINT && (
       !wallets.has(repayReserve.reserve.liquidity.mintPubkey.toBase58()) ||
             !wallets.has(withdrawReserve.reserve.collateral.mintPubkey.toBase58()))) {
     return;
@@ -137,7 +141,7 @@ async function liquidateAccount(connection: Connection, programId: PublicKey, pa
   
 
 
-  const transferAuthority = repayReserve.reserve.liquidity.mintPubkey.toBase58() != "So11111111111111111111111111111111111111112" ?
+  const transferAuthority = repayReserve.reserve.liquidity.mintPubkey.toBase58() !== SOL_MINT ?
     liquidateByPayingToken(
       transaction,
       wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey,
@@ -197,7 +201,7 @@ function liquidateByPayingSOL(
     ),
     Token.createInitAccountInstruction(
       new PublicKey(TOKEN_PROGRAM_ID),
-      new PublicKey("So11111111111111111111111111111111111111112"),
+      new PublicKey(SOL_MINT),
       wrappedSOLTokenAccount.publicKey,
       payer.publicKey
     )
