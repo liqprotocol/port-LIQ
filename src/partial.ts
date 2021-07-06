@@ -12,6 +12,7 @@ import { AccountLayout, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { redeemReserveCollateralInstruction } from './instructions/redeemReserveCollateral';
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
+const DISPLAY_FIRST = 1;
 
 async function runPartialLiquidator() {
   const cluster = process.env.CLUSTER || 'devnet'
@@ -85,9 +86,9 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
     );
   console.log(
     `Total number of obligations are: ${obligations.length},
-     The two with highest risk factors are: ${sortedObligations.slice(0,2).map(obligation => obligation.riskFactor.toFixed(2))},
-     Borrow amount: ${sortedObligations.slice(0,2).map(obligation => obligation.loanValue.toFixed(2))}
-     Deposit value: ${sortedObligations.slice(0,2).map(obligation => obligation.collateralValue.toFixed(2))}
+     The two with highest risk factors are: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.riskFactor.toFixed(2))},
+     Borrow amount: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.loanValue.toFixed(2))}
+     Deposit value: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.collateralValue.toFixed(2))}
      Current SOL price is ${solPrice}`);
   return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
 }
