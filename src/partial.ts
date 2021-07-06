@@ -137,7 +137,8 @@ async function liquidateAccount(
     [lendingMarket.toBuffer()],
     programId,
   );
-  let transaction = new Transaction();
+  const transaction: Transaction = new Transaction();
+  const signers: Account[] = [];
   parsedReserveMap.forEach(
     (reserve: EnrichedReserve) => {
       transaction.add(
@@ -164,9 +165,11 @@ async function liquidateAccount(
   
   const payerAccount = await connection.getAccountInfo(payer.publicKey);
 
+  signers.push(payer);
   const transferAuthority = repayReserve.reserve.liquidity.mintPubkey.toBase58() !== SOL_MINT ?
     liquidateByPayingToken(
       transaction,
+      signers,
       wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey,
       wallets.get(withdrawReserve.reserve.collateral.mintPubkey.toBase58())!.publicKey,
       repayReserve,
@@ -178,6 +181,7 @@ async function liquidateAccount(
     ) :
     liquidateByPayingSOL(
       transaction,
+      signers,
       payerAccount!.lamports,
       wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey,
       repayReserve,
@@ -188,9 +192,10 @@ async function liquidateAccount(
       payer
     );
 
+  signers.push(transferAuthority);
   const sig = await connection.sendTransaction(
     transaction,
-    [payer, transferAuthority],
+    signers,
   );
   console.log(`liqudiation transaction sent: ${sig}.`)
 
@@ -202,6 +207,7 @@ async function liquidateAccount(
 
 function liquidateByPayingSOL(
   transaction: Transaction,
+  signers: Account[],
   solBalance: number,
   withdrawWallet: PublicKey,
   repayReserve: EnrichedReserve,
@@ -232,6 +238,7 @@ function liquidateByPayingSOL(
 
   const transferAuthority = liquidateByPayingToken(
     transaction,
+    signers,
     wrappedSOLTokenAccount.publicKey,
     withdrawWallet,
     repayReserve,
@@ -252,11 +259,16 @@ function liquidateByPayingSOL(
     )
   );
 
+  signers.push(
+    wrappedSOLTokenAccount
+  );
+
   return transferAuthority;
 }
 
 function liquidateByPayingToken(
   transaction: Transaction,
+  signers: Account[],
   repayWallet: PublicKey,
   withdrawWallet: PublicKey,
   repayReserve: EnrichedReserve,
@@ -305,6 +317,10 @@ function liquidateByPayingToken(
 async function redeemCollateral(wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet; }>, withdrawReserve: EnrichedReserve, payer: Account, tokenwallet: { publicKey: PublicKey; tokenAccount: Wallet; }, lendingMarketAuthority: PublicKey, connection: Connection) {
   const transaction = new Transaction();
   const transferAuthority = new Account();
+  if (tokenwallet.tokenAccount.amount === 0) {
+    return;
+  }
+
   transaction.add(
     Token.createApproveInstruction(
       TOKEN_PROGRAM_ID,
