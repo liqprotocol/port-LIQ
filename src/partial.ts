@@ -40,10 +40,12 @@ async function runPartialLiquidator() {
       async (reserve) => {
         wallets.set(
           reserve.reserve.liquidity.mintPubkey.toBase58(),
-          await findLargestTokenAccountForOwner(connection, payer, reserve.reserve.liquidity.mintPubkey));
+          await findLargestTokenAccountForOwner(
+            connection, payer, reserve.reserve.liquidity.mintPubkey));
         wallets.set(
           reserve.reserve.collateral.mintPubkey.toBase58(),
-          await findLargestTokenAccountForOwner(connection, payer, reserve.reserve.collateral.mintPubkey));
+          await findLargestTokenAccountForOwner(
+            connection, payer, reserve.reserve.collateral.mintPubkey));
       }
     )
   )
@@ -52,7 +54,7 @@ async function runPartialLiquidator() {
     try {
 
       const unhealthyObligations = await getUnhealthyObligations(connection, programId);
-      console.log(`Time: ${getUnixTs()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
+      console.log(`Time: ${new Date()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
       for (const unhealthyObligation of unhealthyObligations) {
         notify(
           `Liquidating obligation account ${unhealthyObligation.obligation.publicKey.toBase58()} which is owned by ${unhealthyObligation.obligation.owner.toBase58()}
@@ -81,7 +83,12 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
         return obligation2.riskFactor - obligation1.riskFactor;
       }
     );
-  console.log(`Total number of obligations are: ${obligations.length}, the two with highest risk factors are: ${sortedObligations.slice(0,2).map(obligation => obligation.riskFactor.toFixed(2))}, current SOL price is ${solPrice}`);
+  console.log(
+    `Total number of obligations are: ${obligations.length},
+     The two with highest risk factors are: ${sortedObligations.slice(0,2).map(obligation => obligation.riskFactor.toFixed(2))},
+     Borrow amount: ${sortedObligations.slice(0,2).map(obligation => obligation.loanValue.toFixed(2))}
+     Deposit value: ${sortedObligations.slice(0,2).map(obligation => obligation.collateralValue.toFixed(2))}
+     Current SOL price is ${solPrice}`);
   return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
 }
 
@@ -91,6 +98,7 @@ const USD_RESERVE_PUBKEY = "7pVRDvc6PUuRbj2fZAFJs3S2WZFmvCY6WDnYorJLFKkq";
 function generateEnrichedObligation(obligation: Obligation, solPrice: number): EnrichedObligation {
   let loanValue = 0.0;
   const usdcPrice = 1;
+
   for (const borrow of obligation.borrows) {
     if (borrow.borrowReserve.toBase58() === SOL_RESERVE_PUBKEY) {
       // SOL 9 decimals
@@ -111,7 +119,10 @@ function generateEnrichedObligation(obligation: Obligation, solPrice: number): E
   }
 
   const riskFactor = (collateralValue === 0 || loanValue === 0) ? 0 : loanValue / collateralValue;
+
   return {
+    loanValue,
+    collateralValue,
     riskFactor,
     obligation
   }
