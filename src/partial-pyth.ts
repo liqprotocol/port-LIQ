@@ -10,9 +10,26 @@ import { refreshObligationInstruction } from './instructions/refreshObligation';
 import { liquidateObligationInstruction } from './instructions/liquidateObligation';
 import { AccountLayout, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { redeemReserveCollateralInstruction } from './instructions/redeemReserveCollateral';
+import { parsePriceData } from './pyth/pyth';
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const DISPLAY_FIRST = 10;
+
+const tokenToPythPriceAccount = new Map([
+  ["SOL", "H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG"],
+  ["USDT", "3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL"]
+]);
+
+async function readPythPriceFor(connection: Connection, symbol: string): Promise<number> {
+  if (!tokenToPythPriceAccount.has(symbol)) {
+    return Promise.reject(`no corresponding pyth account for symbol ${symbol}`);
+  }
+
+  const pythData = await connection.getAccountInfo(new PublicKey(tokenToPythPriceAccount.get(symbol)!));
+  const parsedData = parsePriceData(pythData?.data!);
+
+  return parsedData.price;
+}
 
 async function runPartialLiquidator() {
   const cluster = process.env.CLUSTER || 'devnet'
@@ -76,9 +93,13 @@ async function runPartialLiquidator() {
 
 async function getUnhealthyObligations(connection: Connection, programId: PublicKey) {
   const obligations = await getAllObligations(connection, programId)
-  let solPrice = await getAssetPrice("SOL");
+  const tokenToCurrentPrice = new Map([
+    ["SOL", await readPythPriceFor(connection, "SOL")],
+    ["USDT", await readPythPriceFor(connection, "USDT")],
+    ["USDC", 1]
+  ]);
   const sortedObligations =  obligations
-    .map(obligation => generateEnrichedObligation(obligation, solPrice))
+    .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice))
     .sort(
       (obligation1, obligation2) => {
         return obligation2.riskFactor - obligation1.riskFactor;
@@ -90,18 +111,13 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
      Borrow amount: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.loanValue.toFixed(2))}
      Deposit value: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.collateralValue.toFixed(2))}
      Borrow assets: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.borrowedAssetNames.toString()}]`)}
-     Deposit assets: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.depositedAssetNames.toString()}]`)}
-     Current SOL price is ${solPrice}`);
+     Deposit assets: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.depositedAssetNames.toString()}]`)}`);
+  tokenToCurrentPrice.forEach((price: number, token: string) => {
+    console.log(`name: ${token} price: ${price}`)
+  });
+  console.log("\n");
   return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
 }
-
-// TODO: refactor this bit.
-const SOL_RESERVE_PUBKEY = "X9ByyhmtQH3Wjku9N5obPy54DbVjZV7Z99TPJZ2rwcs";
-const SOL_LIQUIDATION_THRESHOLD = 0.85;
-const USDC_RESERVE_PUBKEY = "DcENuKuYd6BWGhKfGr7eARxodqG12Bz1sN5WA8NwvLRx";
-const USDC_LIQUIDATION_THRESHOLD = 0.90;
-const USDT_RESERVE_PUBKEY = "4tqY9Hv7e8YhNQXuH75WKrZ7tTckbv2GfFVxmVcScW5s";
-const USDT_LIQUIDATION_THRESHOLD = 0.90;
 
 const reserveLookUpTable = {
   "X9ByyhmtQH3Wjku9N5obPy54DbVjZV7Z99TPJZ2rwcs": {
@@ -121,46 +137,28 @@ const reserveLookUpTable = {
   }
 }
 
-function generateEnrichedObligation(obligation: Obligation, solPrice: number): EnrichedObligation {
-  const usdcPrice = 1;
-  const usdtPrice = 1;
+function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice: Map<string, number>): EnrichedObligation {
   let loanValue = 0.0;
   const borrowedAssetNames: string[] = [];
-
   for (const borrow of obligation.borrows) {
-    if (borrow.borrowReserve.toBase58() === SOL_RESERVE_PUBKEY) {
-      // SOL 9 decimals
-      loanValue += lamportToNumber(wadToLamport(borrow.borrowedAmountWads), 9) * solPrice;
-    } else if (borrow.borrowReserve.toBase58() === USDC_RESERVE_PUBKEY) {
-      // USDC 6 decimals
-      loanValue += lamportToNumber(wadToLamport(borrow.borrowedAmountWads), 6) * usdcPrice;
-    } else if (borrow.borrowReserve.toBase58() === USDT_RESERVE_PUBKEY) {
-      loanValue += lamportToNumber(wadToLamport(borrow.borrowedAmountWads), 6) * usdtPrice;
-    }
-
-    borrowedAssetNames.push(
-      reserveLookUpTable[borrow.borrowReserve.toBase58()]["name"]
-    );
+    let reservePubKey = borrow.borrowReserve.toBase58();
+    let {name, decimal} = reserveLookUpTable[reservePubKey];
+    loanValue += lamportToNumber(wadToLamport(borrow.borrowedAmountWads), decimal) * tokenToCurrentPrice.get(name)!;
+    borrowedAssetNames.push(name);
   }
 
   let collateralValue = 0.0;
   const depositedAssetNames: string[] = [];
 
   for (const deposit of obligation.deposits) {
-    if (deposit.depositReserve.toBase58() === SOL_RESERVE_PUBKEY) {
-      collateralValue += lamportToNumber(deposit.depositedAmount, 9) * solPrice * SOL_LIQUIDATION_THRESHOLD;
-    } else if (deposit.depositReserve.toBase58() === USDC_RESERVE_PUBKEY) {
-      collateralValue += lamportToNumber(deposit.depositedAmount, 6) * usdcPrice * USDC_LIQUIDATION_THRESHOLD;
-    } else if (deposit.depositReserve.toBase58() === USDT_RESERVE_PUBKEY) {
-      collateralValue += lamportToNumber(deposit.depositedAmount, 6) * usdtPrice * USDT_LIQUIDATION_THRESHOLD;
-    }
-    depositedAssetNames.push(
-      reserveLookUpTable[deposit.depositReserve.toBase58()]["name"]
-    );
+
+    let reservePubKey = deposit.depositReserve.toBase58();
+    let {name, liquidationThreshold, decimal} = reserveLookUpTable[reservePubKey];
+    collateralValue += lamportToNumber(deposit.depositedAmount, decimal) * tokenToCurrentPrice.get(name)! * liquidationThreshold;
+    depositedAssetNames.push(name);
   }
 
   const riskFactor = (collateralValue === 0 || loanValue === 0) ? 0 : loanValue / collateralValue;
-
 
   return {
     loanValue,
