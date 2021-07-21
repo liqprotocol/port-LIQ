@@ -48,7 +48,7 @@ async function runPartialLiquidator() {
 
   const parsedReserveMap = await getParsedReservesMap(connection, programId);
   const wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }> = new Map();
-  const reserves:EnrichedReserve[] = [];
+  const reserves: EnrichedReserve[] = [];
   parsedReserveMap.forEach(
     (reserve) => reserves.push(reserve)
   );
@@ -71,7 +71,7 @@ async function runPartialLiquidator() {
   while (true) {
     try {
 
-      const unhealthyObligations = await getUnhealthyObligations(connection, programId);
+      const unhealthyObligations = await getUnhealthyObligations(connection, programId, parsedReserveMap);
       console.log(`Time: ${new Date()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
       for (const unhealthyObligation of unhealthyObligations) {
         notify(
@@ -91,7 +91,7 @@ async function runPartialLiquidator() {
 
 }
 
-async function getUnhealthyObligations(connection: Connection, programId: PublicKey) {
+async function getUnhealthyObligations(connection: Connection, programId: PublicKey, allReserve: Map<string, EnrichedReserve>) {
   const obligations = await getAllObligations(connection, programId)
   const tokenToCurrentPrice = new Map([
     ["SOL", await readPythPriceFor(connection, "SOL")],
@@ -99,7 +99,7 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
     ["USDC", 1]
   ]);
   const sortedObligations =  obligations
-    .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice))
+    .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice, allReserve))
     .sort(
       (obligation1, obligation2) => {
         return obligation2.riskFactor - obligation1.riskFactor;
@@ -122,22 +122,19 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
 const reserveLookUpTable = {
   "X9ByyhmtQH3Wjku9N5obPy54DbVjZV7Z99TPJZ2rwcs": {
     name: "SOL",
-    liquidationThreshold: 0.85,
     decimal: 9,
   },
   "DcENuKuYd6BWGhKfGr7eARxodqG12Bz1sN5WA8NwvLRx": {
     name: "USDC",
-    liquidationThreshold: 0.90,
     decimal: 6,
   },
   "4tqY9Hv7e8YhNQXuH75WKrZ7tTckbv2GfFVxmVcScW5s": {
     name: "USDT",
-    liquidationThreshold: 0.90,
     decimal: 6,
   }
 }
 
-function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice: Map<string, number>): EnrichedObligation {
+function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice: Map<string, number>, allReserve: Map<string, EnrichedReserve>): EnrichedObligation {
   let loanValue = 0.0;
   const borrowedAssetNames: string[] = [];
   for (const borrow of obligation.borrows) {
@@ -153,8 +150,10 @@ function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice:
   for (const deposit of obligation.deposits) {
 
     let reservePubKey = deposit.depositReserve.toBase58();
-    let {name, liquidationThreshold, decimal} = reserveLookUpTable[reservePubKey];
-    collateralValue += lamportToNumber(deposit.depositedAmount, decimal) * tokenToCurrentPrice.get(name)! * liquidationThreshold;
+    let {name, decimal} = reserveLookUpTable[reservePubKey];
+    // In percentage
+    let liquidationThreshold = allReserve.get(reservePubKey)?.reserve.config.liquidationThreshold!;
+    collateralValue += lamportToNumber(deposit.depositedAmount, decimal) * tokenToCurrentPrice.get(name)! * liquidationThreshold / 100;
     depositedAssetNames.push(name);
   }
 
