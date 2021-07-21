@@ -3,7 +3,7 @@ import { homedir } from 'os';
 import * as fs from 'fs';
 import { findLargestTokenAccountForOwner, getAllObligations, getAssetPrice, getParsedReservesMap, getUnixTs, lamportToNumber, notify, sleep, wadToLamport, Wallet } from './utils';
 import BN = require('bn.js');
-import { EnrichedObligation, Obligation } from './layouts/obligation';
+import { EnrichedObligation, Obligation, ObligationLiquidity } from './layouts/obligation';
 import { EnrichedReserve} from './layouts/reserve';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
 import { refreshObligationInstruction } from './instructions/refreshObligation';
@@ -12,7 +12,7 @@ import { AccountLayout, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { redeemReserveCollateralInstruction } from './instructions/redeemReserveCollateral';
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
-const DISPLAY_FIRST = 1;
+const DISPLAY_FIRST = 10;
 
 async function runPartialLiquidator() {
   const cluster = process.env.CLUSTER || 'devnet'
@@ -89,6 +89,8 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
      The highest risk factors are: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.riskFactor.toFixed(2))},
      Borrow amount: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.loanValue.toFixed(2))}
      Deposit value: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.collateralValue.toFixed(2))}
+     Borrow assets: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.borrowedAssetNames.toString()}]`)}
+     Deposit assets: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.depositedAssetNames.toString()}]`)}
      Current SOL price is ${solPrice}`);
   return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
 }
@@ -101,11 +103,29 @@ const USDC_LIQUIDATION_THRESHOLD = 0.90;
 const USDT_RESERVE_PUBKEY = "4tqY9Hv7e8YhNQXuH75WKrZ7tTckbv2GfFVxmVcScW5s";
 const USDT_LIQUIDATION_THRESHOLD = 0.90;
 
+const reserveLookUpTable = {
+  "X9ByyhmtQH3Wjku9N5obPy54DbVjZV7Z99TPJZ2rwcs": {
+    name: "SOL",
+    liquidationThreshold: 0.85,
+    decimal: 9,
+  },
+  "DcENuKuYd6BWGhKfGr7eARxodqG12Bz1sN5WA8NwvLRx": {
+    name: "USDC",
+    liquidationThreshold: 0.90,
+    decimal: 6,
+  },
+  "4tqY9Hv7e8YhNQXuH75WKrZ7tTckbv2GfFVxmVcScW5s": {
+    name: "USDT",
+    liquidationThreshold: 0.90,
+    decimal: 6,
+  }
+}
 
 function generateEnrichedObligation(obligation: Obligation, solPrice: number): EnrichedObligation {
-  let loanValue = 0.0;
   const usdcPrice = 1;
   const usdtPrice = 1;
+  let loanValue = 0.0;
+  const borrowedAssetNames: string[] = [];
 
   for (const borrow of obligation.borrows) {
     if (borrow.borrowReserve.toBase58() === SOL_RESERVE_PUBKEY) {
@@ -117,9 +137,15 @@ function generateEnrichedObligation(obligation: Obligation, solPrice: number): E
     } else if (borrow.borrowReserve.toBase58() === USDT_RESERVE_PUBKEY) {
       loanValue += lamportToNumber(wadToLamport(borrow.borrowedAmountWads), 6) * usdtPrice;
     }
+
+    borrowedAssetNames.push(
+      reserveLookUpTable[borrow.borrowReserve.toBase58()]["name"]
+    );
   }
 
   let collateralValue = 0.0;
+  const depositedAssetNames: string[] = [];
+
   for (const deposit of obligation.deposits) {
     if (deposit.depositReserve.toBase58() === SOL_RESERVE_PUBKEY) {
       collateralValue += lamportToNumber(deposit.depositedAmount, 9) * solPrice * SOL_LIQUIDATION_THRESHOLD;
@@ -128,15 +154,21 @@ function generateEnrichedObligation(obligation: Obligation, solPrice: number): E
     } else if (deposit.depositReserve.toBase58() === USDT_RESERVE_PUBKEY) {
       collateralValue += lamportToNumber(deposit.depositedAmount, 6) * usdtPrice * USDT_LIQUIDATION_THRESHOLD;
     }
+    depositedAssetNames.push(
+      reserveLookUpTable[deposit.depositReserve.toBase58()]["name"]
+    );
   }
 
   const riskFactor = (collateralValue === 0 || loanValue === 0) ? 0 : loanValue / collateralValue;
+
 
   return {
     loanValue,
     collateralValue,
     riskFactor,
-    obligation
+    obligation,
+    borrowedAssetNames,
+    depositedAssetNames,
   }
 }
 

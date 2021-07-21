@@ -68,6 +68,8 @@ export interface EnrichedObligation {
   // collateral value in USD
   collateralValue: number;
   obligation: Obligation;
+  borrowedAssetNames,
+  depositedAssetNames,
 }
 
 export interface Obligation {
