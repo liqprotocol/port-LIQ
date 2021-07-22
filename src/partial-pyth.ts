@@ -50,7 +50,9 @@ async function runPartialLiquidator() {
   const wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }> = new Map();
   const reserves: EnrichedReserve[] = [];
   parsedReserveMap.forEach(
-    (reserve) => reserves.push(reserve)
+    (reserve) => {
+      reserves.push(reserve)
+    }
   );
 
   await Promise.all(
@@ -96,7 +98,8 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
   const tokenToCurrentPrice = new Map([
     ["SOL", await readPythPriceFor(connection, "SOL")],
     ["USDT", await readPythPriceFor(connection, "USDT")],
-    ["USDC", 1]
+    ["USDC", 1],
+    ["PAI", 1]
   ]);
   const sortedObligations =  obligations
     .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice, allReserve))
@@ -130,6 +133,10 @@ const reserveLookUpTable = {
   },
   "4tqY9Hv7e8YhNQXuH75WKrZ7tTckbv2GfFVxmVcScW5s": {
     name: "USDT",
+    decimal: 6,
+  },
+  "DSw99gXoGzvc4N7cNGU7TJ9bCWFq96NU2Cczi1TabDx2": {
+    name: "PAI",
     decimal: 6,
   }
 }
