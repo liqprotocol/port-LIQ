@@ -125,6 +125,8 @@ function generateEnrichedObligation(obligation: Obligation, solPrice: number): E
     loanValue,
     collateralValue,
     riskFactor,
+    borrowedAssetNames: [],
+    depositedAssetNames: [],
     obligation
   }
 }

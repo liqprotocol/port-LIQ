@@ -1,9 +1,9 @@
 import { Account, Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { findLargestTokenAccountForOwner, getAllObligations, getAssetPrice, getParsedReservesMap, getUnixTs, lamportToNumber, notify, sleep, wadToLamport, Wallet } from './utils';
+import { findLargestTokenAccountForOwner, getAllObligations, getParsedReservesMap, lamportToNumber, notify, sleep, wadToLamport, Wallet } from './utils';
 import BN = require('bn.js');
-import { EnrichedObligation, Obligation, ObligationLiquidity } from './layouts/obligation';
+import { EnrichedObligation, Obligation } from './layouts/obligation';
 import { EnrichedReserve} from './layouts/reserve';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
 import { refreshObligationInstruction } from './instructions/refreshObligation';
