@@ -114,7 +114,10 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
      Borrow amount: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.loanValue.toFixed(2))}
      Deposit value: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.collateralValue.toFixed(2))}
      Borrow assets: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.borrowedAssetNames.toString()}]`)}
-     Deposit assets: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.depositedAssetNames.toString()}]`)}`);
+     Deposit assets: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.depositedAssetNames.toString()}]`)}
+     Obligation pubkey: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.obligation.publicKey.toBase58()}]`)}
+     `);
+
   tokenToCurrentPrice.forEach((price: number, token: string) => {
     console.log(`name: ${token} price: ${price}`)
   });
@@ -158,9 +161,13 @@ function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice:
 
     let reservePubKey = deposit.depositReserve.toBase58();
     let {name, decimal} = reserveLookUpTable[reservePubKey];
+    let reserve = allReserve.get(reservePubKey)!.reserve;
+    let totalSupply = reserve.liquidity.availableAmount.add(wadToLamport(reserve.liquidity.borrowedAmountWads));
+    let collateralTotalSupply = reserve.collateral.mintTotalSupply;
     // In percentage
-    let liquidationThreshold = allReserve.get(reservePubKey)?.reserve.config.liquidationThreshold!;
-    collateralValue += lamportToNumber(deposit.depositedAmount, decimal) * tokenToCurrentPrice.get(name)! * liquidationThreshold / 100;
+    let liquidationThreshold = reserve.config.liquidationThreshold!;
+    collateralValue += lamportToNumber(
+      deposit.depositedAmount.mul(totalSupply).div(collateralTotalSupply), decimal) * tokenToCurrentPrice.get(name)! * liquidationThreshold / 100;
     depositedAssetNames.push(name);
   }
 
