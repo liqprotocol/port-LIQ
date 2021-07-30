@@ -141,6 +141,10 @@ const reserveLookUpTable = {
   "DSw99gXoGzvc4N7cNGU7TJ9bCWFq96NU2Cczi1TabDx2": {
     name: "PAI",
     decimal: 6,
+  },
+  "ZgS3sv1tJAor2rbGMFLeJwxsEGDiHkcrR2ZaNHZUpyF": {
+    name: "SRM",
+    decimal: 6,
   }
 }
 
