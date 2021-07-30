@@ -237,7 +237,7 @@ async function liquidateAccount(
       transaction,
       signers,
       payerAccount!.lamports,
-      wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey,
+      wallets.get(withdrawReserve.reserve.collateral.mintPubkey.toBase58())!.publicKey,
       repayReserve,
       withdrawReserve,
       obligation,
@@ -383,6 +383,9 @@ async function redeemCollateral(wallets: Map<string, { publicKey: PublicKey; tok
       payer.publicKey,
       [],
       1_000_000_000_000
+    ),
+    refreshReserveInstruction(
+      withdrawReserve
     ),
     redeemReserveCollateralInstruction(
       tokenwallet.tokenAccount.amount,

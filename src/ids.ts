@@ -5,5 +5,5 @@ export const TOKEN_PROGRAM_ID = new PublicKey(
 );
 
 export const LENDING_PROGRAM_ID = new PublicKey(
-  'PrtedjXEcbH2SCgvL1oA1rFGxAr2UgZvqxQGxN2ErDT',
+  'Port7uDYB3wk6GJAw4KT1WpTeMtSu9bTcChBHkX2LfR',
 );
