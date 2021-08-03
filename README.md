@@ -16,9 +16,6 @@ export NODE_ENV=production
 export CHECK_INTERVAL="1000.0"
 ```
 
-TARGETS represents the BTC and ETH amounts the partial liquidator should try to maintain
-in the liquidator's wallet. Any excess of that amount in the wallet will be market sold on Serum DEX.
-
 CHECK_INTERVAL is the amount of milliseconds to wait between querying all margin accounts
 
 ### Run
