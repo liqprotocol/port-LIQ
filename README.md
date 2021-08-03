@@ -25,5 +25,5 @@ CHECK_INTERVAL is the amount of milliseconds to wait between querying all margin
 ```
 yarn install
 source .env
-yarn partialLiquidate
+yarn pyth
 ```
