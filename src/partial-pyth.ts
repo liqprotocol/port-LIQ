@@ -17,7 +17,8 @@ const DISPLAY_FIRST = 10;
 
 const tokenToPythPriceAccount = new Map([
   ["SOL", "H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG"],
-  ["USDT", "3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL"]
+  ["USDT", "3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL"],
+  ["SRM", "3NBReDRTLKMQEKiLD5tGcx4kXbTf88b7f2xLS9UuGjym"]
 ]);
 
 async function readPythPriceFor(connection: Connection, symbol: string): Promise<number> {
@@ -98,6 +99,7 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
   const tokenToCurrentPrice = new Map([
     ["SOL", await readPythPriceFor(connection, "SOL")],
     ["USDT", await readPythPriceFor(connection, "USDT")],
+    ["SRM", await readPythPriceFor(connection, "SRM")],
     ["USDC", 1],
     ["PAI", 1]
   ]);
@@ -351,7 +353,7 @@ function liquidateByPayingToken(
         transferAuthority.publicKey,
         payer.publicKey,
         [],
-        1000000000000,
+        1000_000_000_000,
       ),
       liquidateObligationInstruction(
         // u64 MAX for all borrowed amount
