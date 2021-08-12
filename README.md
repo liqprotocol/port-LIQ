@@ -27,3 +27,12 @@ yarn install
 source .env
 yarn partialLiquidate
 ```
+
+pToken mint
+```
+FgSsGV8GByPaMERxeQJPvZRZHf7zCBhrdYtztKorJS58 - USDC
+GaqxUwFGGrDouYLqghchmZU97Y1rNhyF7noMTJNvpQPa - PAI
+8ezDtNNhX91t1NbSLe8xV2PcCEfoQjEm2qDVGjt3rjhg - SOL
+3RudPTAkfcq9Q9Jk8SVeCoecCBmdKMj6q5smsWzxqtqZ - USDT
+77TBgKmTNtMdGrt1ewNRb56F2Xw6fNLZZj33JZ3oGwXh - SRM
+```
