@@ -74,6 +74,22 @@ async function runPartialLiquidator() {
   while (true) {
     try {
 
+      parsedReserveMap.forEach(
+        async (reserve) => {
+          const lendingMarket: PublicKey = parsedReserveMap.values().next().value.reserve.lendingMarket;
+          const [lendingMarketAuthority] = await PublicKey.findProgramAddress(
+            [lendingMarket.toBuffer()],
+            programId,
+          );
+          const tokenWallet = await findLargestTokenAccountForOwner(connection, payer, reserve.reserve.collateral.mintPubkey);
+
+          if (tokenWallet.tokenAccount.amount > 0) {
+            await redeemCollateral(wallets, reserve, payer, tokenWallet, lendingMarketAuthority, connection);
+          }
+        }
+      )
+
+
       const unhealthyObligations = await getUnhealthyObligations(connection, programId, parsedReserveMap);
       console.log(`Time: ${new Date()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
       for (const unhealthyObligation of unhealthyObligations) {
