@@ -10,7 +10,6 @@ import BN from 'bn.js';
 
 export function notify(content: string) {
   if (process.env.WEBHOOK_URL) {
-    console.log("hook: ", process.env.WEBHOOK_URL);
     axios.post(
       process.env.WEBHOOK_URL,
       {"text": content}

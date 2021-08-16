@@ -18,7 +18,9 @@ const DISPLAY_FIRST = 10;
 const tokenToPythPriceAccount = new Map([
   ["SOL", "H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG"],
   ["USDT", "3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL"],
-  ["SRM", "3NBReDRTLKMQEKiLD5tGcx4kXbTf88b7f2xLS9UuGjym"]
+  ["SRM", "3NBReDRTLKMQEKiLD5tGcx4kXbTf88b7f2xLS9UuGjym"],
+  ["BTC", "GVXRSBjFk6e6J3NbVPXohDJetcTjaeeuykUpbQF8UoMU"],
+  ["MER", "G4AQpTYKH1Fmg38VpFQbv6uKYQMpRhJzNPALhp7hqdrs"],
 ]);
 
 async function readPythPriceFor(connection: Connection, symbol: string): Promise<number> {
@@ -94,8 +96,8 @@ async function runPartialLiquidator() {
       console.log(`Time: ${new Date()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
       for (const unhealthyObligation of unhealthyObligations) {
         notify(
-          `Liquidating obligation account ${unhealthyObligation.obligation.publicKey.toBase58()} which is owned by ${unhealthyObligation.obligation.owner.toBase58()}
-           which has borrowed ${unhealthyObligation.obligation.borrowedValue} with liquidation borrowed value at ${unhealthyObligation.obligation.unhealthyBorrowValue} ...`)
+          `Liquidating obligation account ${unhealthyObligation.obligation.publicKey.toBase58()} which is owned by ${unhealthyObligation.obligation.owner.toBase58()} ${unhealthyObligation.riskFactor}
+           which has borrowed ${unhealthyObligation.loanValue} with liquidation borrowed value at ${unhealthyObligation.obligation.unhealthyBorrowValue} ...`)
         await liquidateAccount(connection, programId, payer, unhealthyObligation.obligation, parsedReserveMap, wallets);
       }
 
@@ -116,6 +118,7 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
     ["SOL", await readPythPriceFor(connection, "SOL")],
     ["USDT", await readPythPriceFor(connection, "USDT")],
     ["SRM", await readPythPriceFor(connection, "SRM")],
+    ["BTC", await readPythPriceFor(connection, "BTC")],
     ["USDC", 1],
     ["PAI", 1]
   ]);
@@ -127,7 +130,7 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
       }
     );
   console.log(
-    `Total number of obligations are: ${obligations.length},
+    `Total number of obligations are: ${sortedObligations.length},
      The highest risk factors are: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.riskFactor.toFixed(2))},
      Borrow amount: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.loanValue.toFixed(2))}
      Deposit value: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.collateralValue.toFixed(2))}
@@ -163,6 +166,14 @@ const reserveLookUpTable = {
   "ZgS3sv1tJAor2rbGMFLeJwxsEGDiHkcrR2ZaNHZUpyF": {
     name: "SRM",
     decimal: 6,
+  },
+  "DSST29PMCVkxo8cf5ht9LxrPoMc8jAZt98t6nuJywz8p": {
+    name: "BTC",
+    decimals: 6,
+  },
+  "BnhsmYVvNjXK3TGDHLj1Yr1jBGCmD1gZMkAyCwoXsHwt": {
+    name: "MER",
+    decimals: 6,
   }
 }
 
@@ -215,13 +226,22 @@ async function liquidateAccount(
   );
   const transaction: Transaction = new Transaction();
   const signers: Account[] = [];
-  parsedReserveMap.forEach(
-    (reserve: EnrichedReserve) => {
+  obligation.borrows.forEach(
+    borrow => {
       transaction.add(
         refreshReserveInstruction(
-          reserve,
+          parsedReserveMap.get(borrow.borrowReserve.toBase58())!
         )
-      );
+      )
+    }
+  );
+  obligation.deposits.forEach(
+    deposit => {
+      transaction.add(
+        refreshReserveInstruction(
+          parsedReserveMap.get(deposit.depositReserve.toBase58())!
+        )
+      )
     }
   );
 
@@ -253,7 +273,8 @@ async function liquidateAccount(
       obligation,
       lendingMarket,
       lendingMarketAuthority,
-      payer
+      payer,
+      wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.tokenAccount.amount
     ) :
     liquidateByPayingSOL(
       transaction,
@@ -322,7 +343,8 @@ function liquidateByPayingSOL(
     obligation,
     lendingMarket,
     lendingMarketAuthority,
-    payer
+    payer,
+    solBalance - 1_000_000_000
   );
 
   transaction.add(
@@ -353,6 +375,7 @@ function liquidateByPayingToken(
   lendingMarket: PublicKey,
   lendingMarketAuthority: PublicKey,
   payer: Account,
+  amount: number
 ) {
 
     const transferAuthority = new Account();
@@ -373,7 +396,7 @@ function liquidateByPayingToken(
       ),
       liquidateObligationInstruction(
         // u64 MAX for all borrowed amount
-        new BN('18446744073709551615', 10),
+        amount,
         repayWallet,
         withdrawWallet,
         repayReserve.publicKey,
