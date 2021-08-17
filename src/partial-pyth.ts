@@ -2,7 +2,6 @@ import { Account, Connection, PublicKey, SystemProgram, Transaction } from '@sol
 import { homedir } from 'os';
 import * as fs from 'fs';
 import { findLargestTokenAccountForOwner, getAllObligations, getParsedReservesMap, lamportToNumber, notify, sleep, wadToLamport, Wallet } from './utils';
-import BN = require('bn.js');
 import { EnrichedObligation, Obligation } from './layouts/obligation';
 import { EnrichedReserve} from './layouts/reserve';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
@@ -66,7 +65,6 @@ async function runPartialLiquidator() {
 
   while (true) {
     try {
-
       parsedReserveMap.forEach(
         async (reserve) => {
           const lendingMarket: PublicKey = parsedReserveMap.values().next().value.reserve.lendingMarket;
@@ -81,7 +79,6 @@ async function runPartialLiquidator() {
           }
         }
       )
-
 
       const unhealthyObligations = await getUnhealthyObligations(connection, programId, parsedReserveMap);
       console.log(`Time: ${new Date()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
