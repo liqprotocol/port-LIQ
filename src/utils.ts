@@ -195,8 +195,7 @@ export function wadToLamport(wad: BN): BN {
   return wad.div(WAD);
 }
 
-export function lamportToNumber(lamport: BN, mintDecimals: number): number {
-  const precision = 2;
+export function lamportToNumber(lamport: BN, mintDecimals: number, precision = 4): number {
   if (mintDecimals < precision) {
     throw new Error(`Mint decimal is ${mintDecimals} which is too small`);
   }

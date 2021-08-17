@@ -119,6 +119,7 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
     ["USDT", await readPythPriceFor(connection, "USDT")],
     ["SRM", await readPythPriceFor(connection, "SRM")],
     ["BTC", await readPythPriceFor(connection, "BTC")],
+    ["MER", await readPythPriceFor(connection, "MER")],
     ["USDC", 1],
     ["PAI", 1]
   ]);
@@ -126,12 +127,12 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
     .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice, allReserve))
     .sort(
       (obligation1, obligation2) => {
-        return obligation2.riskFactor - obligation1.riskFactor;
+        return (+obligation2.riskFactor) * 100 - (+obligation1.riskFactor) * 100;
       }
     );
   console.log(
     `Total number of obligations are: ${sortedObligations.length},
-     The highest risk factors are: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.riskFactor.toFixed(2))},
+     The highest risk factors are: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.riskFactor.toFixed(4))},
      Borrow amount: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.loanValue.toFixed(2))}
      Deposit value: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.collateralValue.toFixed(2))}
      Borrow assets: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.borrowedAssetNames.toString()}]`)}
@@ -143,38 +144,30 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
     console.log(`name: ${token} price: ${price}`)
   });
   console.log("\n");
-
   return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
 }
 
 const reserveLookUpTable = {
   "X9ByyhmtQH3Wjku9N5obPy54DbVjZV7Z99TPJZ2rwcs": {
     name: "SOL",
-    decimal: 9,
   },
   "DcENuKuYd6BWGhKfGr7eARxodqG12Bz1sN5WA8NwvLRx": {
     name: "USDC",
-    decimal: 6,
   },
   "4tqY9Hv7e8YhNQXuH75WKrZ7tTckbv2GfFVxmVcScW5s": {
     name: "USDT",
-    decimal: 6,
   },
   "DSw99gXoGzvc4N7cNGU7TJ9bCWFq96NU2Cczi1TabDx2": {
     name: "PAI",
-    decimal: 6,
   },
   "ZgS3sv1tJAor2rbGMFLeJwxsEGDiHkcrR2ZaNHZUpyF": {
     name: "SRM",
-    decimal: 6,
   },
   "DSST29PMCVkxo8cf5ht9LxrPoMc8jAZt98t6nuJywz8p": {
     name: "BTC",
-    decimals: 6,
   },
   "BnhsmYVvNjXK3TGDHLj1Yr1jBGCmD1gZMkAyCwoXsHwt": {
     name: "MER",
-    decimals: 6,
   }
 }
 
@@ -183,8 +176,9 @@ function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice:
   const borrowedAssetNames: string[] = [];
   for (const borrow of obligation.borrows) {
     let reservePubKey = borrow.borrowReserve.toBase58();
-    let {name, decimal} = reserveLookUpTable[reservePubKey];
-    loanValue += lamportToNumber(wadToLamport(borrow.borrowedAmountWads), decimal) * tokenToCurrentPrice.get(name)!;
+    let reserve = allReserve.get(reservePubKey)!.reserve;
+    let {name} = reserveLookUpTable[reservePubKey];
+    loanValue += lamportToNumber(wadToLamport(borrow.borrowedAmountWads), reserve.liquidity.mintDecimals) * tokenToCurrentPrice.get(name)!!;
     borrowedAssetNames.push(name);
   }
 
@@ -194,14 +188,14 @@ function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice:
   for (const deposit of obligation.deposits) {
 
     let reservePubKey = deposit.depositReserve.toBase58();
-    let {name, decimal} = reserveLookUpTable[reservePubKey];
+    let {name} = reserveLookUpTable[reservePubKey];
     let reserve = allReserve.get(reservePubKey)!.reserve;
     let totalSupply = reserve.liquidity.availableAmount.add(wadToLamport(reserve.liquidity.borrowedAmountWads));
     let collateralTotalSupply = reserve.collateral.mintTotalSupply;
     // In percentage
     let liquidationThreshold = reserve.config.liquidationThreshold!;
-    collateralValue += lamportToNumber(
-      deposit.depositedAmount.mul(totalSupply).div(collateralTotalSupply), decimal) * tokenToCurrentPrice.get(name)! * liquidationThreshold / 100;
+    collateralValue += (lamportToNumber(
+      deposit.depositedAmount.mul(totalSupply).div(collateralTotalSupply), reserve.liquidity.mintDecimals) * tokenToCurrentPrice.get(name)! * liquidationThreshold / 100);
     depositedAssetNames.push(name);
   }
 
