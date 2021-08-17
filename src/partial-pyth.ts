@@ -96,7 +96,7 @@ async function runPartialLiquidator() {
       console.log(`Time: ${new Date()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
       for (const unhealthyObligation of unhealthyObligations) {
         notify(
-          `Liquidating obligation account ${unhealthyObligation.obligation.publicKey.toBase58()} which is owned by ${unhealthyObligation.obligation.owner.toBase58()} ${unhealthyObligation.riskFactor}
+          `Liquidating obligation account ${unhealthyObligation.obligation.publicKey.toBase58()} which is owned by ${unhealthyObligation.obligation.owner.toBase58()} with risk factor: ${unhealthyObligation.riskFactor}
            which has borrowed ${unhealthyObligation.loanValue} with liquidation borrowed value at ${unhealthyObligation.obligation.unhealthyBorrowValue} ...`)
         await liquidateAccount(connection, programId, payer, unhealthyObligation.obligation, parsedReserveMap, wallets);
       }
@@ -143,6 +143,7 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
     console.log(`name: ${token} price: ${price}`)
   });
   console.log("\n");
+
   return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
 }
 
