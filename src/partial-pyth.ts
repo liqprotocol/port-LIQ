@@ -15,23 +15,14 @@ import { parsePriceData } from './pyth/pyth';
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const DISPLAY_FIRST = 10;
 
-const tokenToPythPriceAccount = new Map([
-  ["SOL", "H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG"],
-  ["USDT", "3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL"],
-  ["SRM", "3NBReDRTLKMQEKiLD5tGcx4kXbTf88b7f2xLS9UuGjym"],
-  ["BTC", "GVXRSBjFk6e6J3NbVPXohDJetcTjaeeuykUpbQF8UoMU"],
-  ["MER", "G4AQpTYKH1Fmg38VpFQbv6uKYQMpRhJzNPALhp7hqdrs"],
-]);
-
-async function readPythPriceFor(connection: Connection, symbol: string): Promise<number> {
-  if (!tokenToPythPriceAccount.has(symbol)) {
-    return Promise.reject(`no corresponding pyth account for symbol ${symbol}`);
-  }
-
-  const pythData = await connection.getAccountInfo(new PublicKey(tokenToPythPriceAccount.get(symbol)!));
-  const parsedData = parsePriceData(pythData?.data!);
-
-  return parsedData.price;
+const reserveLookUpTable = {
+  "X9ByyhmtQH3Wjku9N5obPy54DbVjZV7Z99TPJZ2rwcs": "SOL",
+  "DcENuKuYd6BWGhKfGr7eARxodqG12Bz1sN5WA8NwvLRx": "USDC",
+  "4tqY9Hv7e8YhNQXuH75WKrZ7tTckbv2GfFVxmVcScW5s": "USDT",
+  "DSw99gXoGzvc4N7cNGU7TJ9bCWFq96NU2Cczi1TabDx2": "PAI",
+  "ZgS3sv1tJAor2rbGMFLeJwxsEGDiHkcrR2ZaNHZUpyF": "SRM",
+  "DSST29PMCVkxo8cf5ht9LxrPoMc8jAZt98t6nuJywz8p": "BTC",
+  "BnhsmYVvNjXK3TGDHLj1Yr1jBGCmD1gZMkAyCwoXsHwt": "MER"
 }
 
 async function runPartialLiquidator() {
@@ -112,17 +103,26 @@ async function runPartialLiquidator() {
 
 }
 
+async function readSymbolPrice(connection: Connection, reserve: EnrichedReserve): Promise<number> {
+  if (reserve.reserve.liquidity.oracleOption === 0) {
+    return wadToLamport(reserve.reserve.liquidity.marketPrice).toNumber();
+  }
+
+  const pythData = await connection.getAccountInfo(reserve.reserve.liquidity.oraclePubkey);
+  const parsedData = parsePriceData(pythData?.data!);
+
+  return parsedData.price;
+}
+
 async function getUnhealthyObligations(connection: Connection, programId: PublicKey, allReserve: Map<string, EnrichedReserve>) {
   const obligations = await getAllObligations(connection, programId)
-  const tokenToCurrentPrice = new Map([
-    ["SOL", await readPythPriceFor(connection, "SOL")],
-    ["USDT", await readPythPriceFor(connection, "USDT")],
-    ["SRM", await readPythPriceFor(connection, "SRM")],
-    ["BTC", await readPythPriceFor(connection, "BTC")],
-    ["MER", await readPythPriceFor(connection, "MER")],
-    ["USDC", 1],
-    ["PAI", 1]
-  ]);
+  const tokenToCurrentPrice = new Map();
+  for (const [reservePubKey, reserve] of allReserve.entries()) {
+    tokenToCurrentPrice.set(
+      reserve.publicKey.toBase58(),
+      await readSymbolPrice(connection, reserve)
+    )
+  }
   const sortedObligations =  obligations
     .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice, allReserve))
     .sort(
@@ -141,34 +141,10 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
      `);
 
   tokenToCurrentPrice.forEach((price: number, token: string) => {
-    console.log(`name: ${token} price: ${price}`)
+    console.log(`name: ${reserveLookUpTable[token]} price: ${price}`)
   });
   console.log("\n");
   return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
-}
-
-const reserveLookUpTable = {
-  "X9ByyhmtQH3Wjku9N5obPy54DbVjZV7Z99TPJZ2rwcs": {
-    name: "SOL",
-  },
-  "DcENuKuYd6BWGhKfGr7eARxodqG12Bz1sN5WA8NwvLRx": {
-    name: "USDC",
-  },
-  "4tqY9Hv7e8YhNQXuH75WKrZ7tTckbv2GfFVxmVcScW5s": {
-    name: "USDT",
-  },
-  "DSw99gXoGzvc4N7cNGU7TJ9bCWFq96NU2Cczi1TabDx2": {
-    name: "PAI",
-  },
-  "ZgS3sv1tJAor2rbGMFLeJwxsEGDiHkcrR2ZaNHZUpyF": {
-    name: "SRM",
-  },
-  "DSST29PMCVkxo8cf5ht9LxrPoMc8jAZt98t6nuJywz8p": {
-    name: "BTC",
-  },
-  "BnhsmYVvNjXK3TGDHLj1Yr1jBGCmD1gZMkAyCwoXsHwt": {
-    name: "MER",
-  }
 }
 
 function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice: Map<string, number>, allReserve: Map<string, EnrichedReserve>): EnrichedObligation {
@@ -177,8 +153,8 @@ function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice:
   for (const borrow of obligation.borrows) {
     let reservePubKey = borrow.borrowReserve.toBase58();
     let reserve = allReserve.get(reservePubKey)!.reserve;
-    let {name} = reserveLookUpTable[reservePubKey];
-    loanValue += lamportToNumber(wadToLamport(borrow.borrowedAmountWads), reserve.liquidity.mintDecimals) * tokenToCurrentPrice.get(name)!!;
+    let name = reserveLookUpTable[reservePubKey];
+    loanValue += lamportToNumber(wadToLamport(borrow.borrowedAmountWads), reserve.liquidity.mintDecimals) * tokenToCurrentPrice.get(reservePubKey)!;
     borrowedAssetNames.push(name);
   }
 
@@ -188,14 +164,14 @@ function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice:
   for (const deposit of obligation.deposits) {
 
     let reservePubKey = deposit.depositReserve.toBase58();
-    let {name} = reserveLookUpTable[reservePubKey];
+    let name = reserveLookUpTable[reservePubKey];
     let reserve = allReserve.get(reservePubKey)!.reserve;
     let totalSupply = reserve.liquidity.availableAmount.add(wadToLamport(reserve.liquidity.borrowedAmountWads));
     let collateralTotalSupply = reserve.collateral.mintTotalSupply;
     // In percentage
     let liquidationThreshold = reserve.config.liquidationThreshold!;
     collateralValue += (lamportToNumber(
-      deposit.depositedAmount.mul(totalSupply).div(collateralTotalSupply), reserve.liquidity.mintDecimals) * tokenToCurrentPrice.get(name)! * liquidationThreshold / 100);
+      deposit.depositedAmount.mul(totalSupply).div(collateralTotalSupply), reserve.liquidity.mintDecimals) * tokenToCurrentPrice.get(reservePubKey)! * liquidationThreshold / 100);
     depositedAssetNames.push(name);
   }
 
