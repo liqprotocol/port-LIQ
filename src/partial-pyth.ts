@@ -188,24 +188,27 @@ async function liquidateAccount(
   );
   const transaction: Transaction = new Transaction();
   const signers: Account[] = [];
+
+  const toRefreshReserves: Set<string> = new Set();
   obligation.borrows.forEach(
     borrow => {
-      transaction.add(
-        refreshReserveInstruction(
-          parsedReserveMap.get(borrow.borrowReserve.toBase58())!
-        )
-      )
+      toRefreshReserves.add(borrow.borrowReserve.toBase58())
     }
   );
   obligation.deposits.forEach(
     deposit => {
+      toRefreshReserves.add(deposit.depositReserve.toBase58())
+    }
+  );
+  toRefreshReserves.forEach(
+    reserve => {
       transaction.add(
         refreshReserveInstruction(
-          parsedReserveMap.get(deposit.depositReserve.toBase58())!
+          parsedReserveMap.get(reserve)!
         )
       )
     }
-  );
+  )
 
   // TODO: choose a more sensible value
   const repayReserve: EnrichedReserve | undefined = parsedReserveMap.get(obligation.borrows[0].borrowReserve.toBase58());
