@@ -41,44 +41,21 @@ async function runPartialLiquidator() {
 
   const parsedReserveMap = await getParsedReservesMap(connection, programId);
   const wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }> = new Map();
-  const reserves: EnrichedReserve[] = [];
-  parsedReserveMap.forEach(
-    (reserve) => {
-      reserves.push(reserve)
-    }
-  );
 
-  await Promise.all(
-    reserves.map(
-      async (reserve) => {
-        wallets.set(
-          reserve.reserve.liquidity.mintPubkey.toBase58(),
-          await findLargestTokenAccountForOwner(
-            connection, payer, reserve.reserve.liquidity.mintPubkey));
-        wallets.set(
-          reserve.reserve.collateral.mintPubkey.toBase58(),
-          await findLargestTokenAccountForOwner(
-            connection, payer, reserve.reserve.collateral.mintPubkey));
-      }
-    )
-  )
+  for (const reserve of parsedReserveMap.values()) {
+    wallets.set(
+      reserve.reserve.liquidity.mintPubkey.toBase58(),
+      await findLargestTokenAccountForOwner(
+        connection, payer, reserve.reserve.liquidity.mintPubkey));
+    wallets.set(
+      reserve.reserve.collateral.mintPubkey.toBase58(),
+      await findLargestTokenAccountForOwner(
+        connection, payer, reserve.reserve.collateral.mintPubkey));
+  }
 
   while (true) {
     try {
-      parsedReserveMap.forEach(
-        async (reserve) => {
-          const lendingMarket: PublicKey = parsedReserveMap.values().next().value.reserve.lendingMarket;
-          const [lendingMarketAuthority] = await PublicKey.findProgramAddress(
-            [lendingMarket.toBuffer()],
-            programId,
-          );
-          const tokenWallet = await findLargestTokenAccountForOwner(connection, payer, reserve.reserve.collateral.mintPubkey);
-
-          if (tokenWallet.tokenAccount.amount > 0) {
-            await redeemCollateral(wallets, reserve, payer, tokenWallet, lendingMarketAuthority, connection);
-          }
-        }
-      )
+      redeemRemainingCollaterals(parsedReserveMap, programId, connection, payer, wallets);
 
       const unhealthyObligations = await getUnhealthyObligations(connection, programId, parsedReserveMap);
       console.log(`Time: ${new Date()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
@@ -98,6 +75,23 @@ async function runPartialLiquidator() {
     // break;
   }
 
+}
+
+function redeemRemainingCollaterals(parsedReserveMap: Map<string, EnrichedReserve>, programId: PublicKey, connection: Connection, payer: Account, wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet; }>) {
+  parsedReserveMap.forEach(
+    async (reserve) => {
+      const lendingMarket: PublicKey = parsedReserveMap.values().next().value.reserve.lendingMarket;
+      const [lendingMarketAuthority] = await PublicKey.findProgramAddress(
+        [lendingMarket.toBuffer()],
+        programId
+      );
+      const collateralWallet = await findLargestTokenAccountForOwner(connection, payer, reserve.reserve.collateral.mintPubkey);
+
+      if (collateralWallet.tokenAccount.amount > 0) {
+        await redeemCollateral(wallets, reserve, payer, collateralWallet, lendingMarketAuthority, connection);
+      }
+    }
+  );
 }
 
 async function readSymbolPrice(connection: Connection, reserve: EnrichedReserve): Promise<number> {
