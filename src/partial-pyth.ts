@@ -225,26 +225,29 @@ async function liquidateAccount(
   }
   
   const payerAccount = await connection.getAccountInfo(payer.publicKey);
+  const repayWallet = await findLargestTokenAccountForOwner(connection, payer, repayReserve.reserve.liquidity.mintPubkey)
+  const withdrawWallet = await findLargestTokenAccountForOwner(connection, payer, withdrawReserve.reserve.collateral.mintPubkey)
 
   signers.push(payer);
+
   const transferAuthority = repayReserve.reserve.liquidity.mintPubkey.toBase58() !== SOL_MINT ?
     liquidateByPayingToken(
       transaction,
       signers,
-      wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.publicKey,
-      wallets.get(withdrawReserve.reserve.collateral.mintPubkey.toBase58())!.publicKey,
+      repayWallet.tokenAccount.amount,
+      repayWallet.publicKey,
+      withdrawWallet.publicKey,
       repayReserve,
       withdrawReserve,
       obligation,
       lendingMarket,
       lendingMarketAuthority,
       payer,
-      wallets.get(repayReserve.reserve.liquidity.mintPubkey.toBase58())!.tokenAccount.amount
     ) :
     liquidateByPayingSOL(
       transaction,
       signers,
-      payerAccount!.lamports,
+      payerAccount!.lamports - 100_000_000,
       wallets.get(withdrawReserve.reserve.collateral.mintPubkey.toBase58())!.publicKey,
       repayReserve,
       withdrawReserve,
@@ -270,7 +273,7 @@ async function liquidateAccount(
 function liquidateByPayingSOL(
   transaction: Transaction,
   signers: Account[],
-  solBalance: number,
+  amount: number,
   withdrawWallet: PublicKey,
   repayReserve: EnrichedReserve,
   withdrawReserve: EnrichedReserve,
@@ -285,7 +288,7 @@ function liquidateByPayingSOL(
       {
         fromPubkey: payer.publicKey,
         newAccountPubkey: wrappedSOLTokenAccount.publicKey,
-        lamports: solBalance - 1_000_000_000,
+        lamports: amount,
         space: AccountLayout.span,
         programId: new PublicKey(TOKEN_PROGRAM_ID),
       }
@@ -301,6 +304,7 @@ function liquidateByPayingSOL(
   const transferAuthority = liquidateByPayingToken(
     transaction,
     signers,
+    amount,
     wrappedSOLTokenAccount.publicKey,
     withdrawWallet,
     repayReserve,
@@ -309,7 +313,6 @@ function liquidateByPayingSOL(
     lendingMarket,
     lendingMarketAuthority,
     payer,
-    solBalance - 1_000_000_000
   );
 
   transaction.add(
@@ -332,6 +335,7 @@ function liquidateByPayingSOL(
 function liquidateByPayingToken(
   transaction: Transaction,
   signers: Account[],
+  amount: number,
   repayWallet: PublicKey,
   withdrawWallet: PublicKey,
   repayReserve: EnrichedReserve,
@@ -340,7 +344,6 @@ function liquidateByPayingToken(
   lendingMarket: PublicKey,
   lendingMarketAuthority: PublicKey,
   payer: Account,
-  amount: number
 ) {
 
     const transferAuthority = new Account();
@@ -357,10 +360,9 @@ function liquidateByPayingToken(
         transferAuthority.publicKey,
         payer.publicKey,
         [],
-        1000_000_000_000,
+        amount,
       ),
       liquidateObligationInstruction(
-        // u64 MAX for all borrowed amount
         amount,
         repayWallet,
         withdrawWallet,
