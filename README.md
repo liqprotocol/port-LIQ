@@ -52,6 +52,7 @@ yarn pyth
 ### Oracle Public Keys
 
 | Asset Name      |  Oracle Pubkey  |
+| :---  |      ---:                                     |
 | SOL   | H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG  |
 | USDC  | Gnt27xtC473ZT2Mw5u8wZ68Z3gULkSTb5DuxJy7eJotD  |
 | USDT  | 3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL  |
