@@ -39,15 +39,15 @@ yarn pyth
 
 ### pToken Mint
 
-| Asset Name     | pToken Mint  |
+| Asset Name     | pToken Mint                          |
 | :---  |      ---:                                     |
-| SOL   |  H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG |
-| USDC  | Gnt27xtC473ZT2Mw5u8wZ68Z3gULkSTb5DuxJy7eJotD  |
-| USDT  |  3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL |
-| PAI   |    N/A                                        |
-| SRM   | 3NBReDRTLKMQEKiLD5tGcx4kXbTf88b7f2xLS9UuGjym  |
-| BTC   | GVXRSBjFk6e6J3NbVPXohDJetcTjaeeuykUpbQF8UoMU  |
-| MER   | G4AQpTYKH1Fmg38VpFQbv6uKYQMpRhJzNPALhp7hqdrs  |
+| SOL   | 8ezDtNNhX91t1NbSLe8xV2PcCEfoQjEm2qDVGjt3rjhg  |
+| USDC  | FgSsGV8GByPaMERxeQJPvZRZHf7zCBhrdYtztKorJS58  |
+| USDT  | 3RudPTAkfcq9Q9Jk8SVeCoecCBmdKMj6q5smsWzxqtqZ  |
+| PAI   | GaqxUwFGGrDouYLqghchmZU97Y1rNhyF7noMTJNvpQPa  |
+| SRM   | 77TBgKmTNtMdGrt1ewNRb56F2Xw6fNLZZj33JZ3oGwXh  |
+| BTC   | QN2HkkBaWHfYSU5bybyups9z1UHu8Eu7QeeyMbjD2JA   |
+| MER   | 6UgGnLA3Lfe8NBLAESctsUXWdP3zjMFzSLEZxS3tiaKh  |
 
 ### Oracle Public Keys
 
@@ -64,10 +64,10 @@ yarn pyth
 ### Supply Public Keys
 | Asset Name     | Supply Public Keys  |
 | :---  |      ---:                                     |
-| SOL   | H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG  |
-| USDC  | Gnt27xtC473ZT2Mw5u8wZ68Z3gULkSTb5DuxJy7eJotD  |
-| USDT  | 3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL  |
-| PAI   | N/A                                           |
-| SRM   | 3NBReDRTLKMQEKiLD5tGcx4kXbTf88b7f2xLS9UuGjym  |
-| BTC   | GVXRSBjFk6e6J3NbVPXohDJetcTjaeeuykUpbQF8UoMU  |
-| MER   | G4AQpTYKH1Fmg38VpFQbv6uKYQMpRhJzNPALhp7hqdrs  |
+| SOL   | BLAFX12cDmsumyB6k3L6whJZqNqySaWeCmS5rVuzy3SS  |
+| USDC  | 2xPnqU4bWhUSjZ74CibY63NrtkHHw5eKntsxf8dzwiid  |
+| USDT  | QyvfrbqH7Mo8W5tHN31nzbfNiwFwqPqahjm9fnzo5EJ   |
+| PAI   | 42kNZrAuwZHLtuc7jvVX7zMfkfgwbPynqzFB3zdkAEGM  |
+| SRM   | DjhMNdgdbxNud1gmc4DUwrQqJxNbjhxiwNnhc4usSXmQ  |
+| BTC   | FZKP27Zxz9GbW86hhq3d1egzpBH5ZnYkyjQZVf86NQJ8  |
+| MER   | 6UmrawFZgdPvMe6BLZdZCNRFz9u2TWsu5enFbTufA3a1  |
