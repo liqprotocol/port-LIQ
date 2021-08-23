@@ -25,6 +25,9 @@ source .env
 yarn pyth
 ```
 
+### Contribution
+We welcome contributions. Substantial contribution is eligible for PORT token or USD rewards.
+
 ## Mainnet
 
 Lending Market: `6T4XxKerq744sSuj3jaoV6QiZ8acirf4TrPwQzHAoSy5`
