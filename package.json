@@ -8,8 +8,7 @@
   "scripts": {
     "build": "tsc",
     "start": "ts-node src/index.ts",
-    "partialLiquidate": "ts-node src/partial.ts",
-    "pyth": "ts-node src/partial-pyth.ts",
+    "liquidator": "ts-node src/partial-pyth.ts",
     "refreshAll": "ts-node src/refreshAll.ts",
     "test": "ts-node src/test.ts",
     "watch": "tsc --watch",
