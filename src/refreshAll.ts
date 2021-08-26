@@ -6,6 +6,7 @@ import { Obligation } from "./layouts/obligation";
 import { EnrichedReserve } from "./layouts/reserve";
 import { refreshReserveInstruction } from "./instructions/refreshReserve";
 import { refreshObligationInstruction } from "./instructions/refreshObligation";
+import BN from "bn.js";
 
 async function refreshAllObligations() {
   const cluster = process.env.CLUSTER || 'devnet';
@@ -28,13 +29,14 @@ async function refreshAllObligations() {
   while(true) {
     try {
       const obligations = await getAllObligations(connection, programId);
-      console.log("Total obligations that needs to be refreshed ", obligations.length);
+      const nonEmptyBorrowedObligations = obligations.filter(obligation => obligation.borrowedValue.eq(new BN(0)));
+      console.log("Total obligations that needs to be refreshed ", nonEmptyBorrowedObligations.length);
       let counter: number = 0;
-      const totalObligationsCnt: number = obligations.length;
+      const totalObligationsCnt: number = nonEmptyBorrowedObligations.length;
       console.log("public key: ", payer.publicKey.toBase58())
       while(counter < totalObligationsCnt) {
         let nextCounter = Math.min(counter + 15, totalObligationsCnt);
-        await refreshObligations(connection, programId, payer, obligations.slice(counter, nextCounter), parsedReserveMap);
+        await refreshObligations(connection, programId, payer, nonEmptyBorrowedObligations.slice(counter, nextCounter), parsedReserveMap);
         counter = nextCounter;
         if (counter % 300 === 0) {
           console.log("Completed refreshing %d obligations", counter);
