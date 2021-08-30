@@ -35,7 +35,8 @@ async function refreshAllObligations() {
       const totalObligationsCnt: number = nonEmptyBorrowedObligations.length;
       console.log("public key: ", payer.publicKey.toBase58())
       while(counter < totalObligationsCnt) {
-        let nextCounter = Math.min(counter + 15, totalObligationsCnt);
+        const batchRefreshCnt = 15;
+        let nextCounter = Math.min(counter + batchRefreshCnt, totalObligationsCnt);
         await refreshObligations(connection, programId, payer, nonEmptyBorrowedObligations.slice(counter, nextCounter), parsedReserveMap);
         counter = nextCounter;
         if (counter % 300 === 0) {
