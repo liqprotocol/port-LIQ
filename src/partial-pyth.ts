@@ -21,7 +21,8 @@ const reserveLookUpTable = {
   "DSw99gXoGzvc4N7cNGU7TJ9bCWFq96NU2Cczi1TabDx2": "PAI",
   "ZgS3sv1tJAor2rbGMFLeJwxsEGDiHkcrR2ZaNHZUpyF": "SRM",
   "DSST29PMCVkxo8cf5ht9LxrPoMc8jAZt98t6nuJywz8p": "BTC",
-  "BnhsmYVvNjXK3TGDHLj1Yr1jBGCmD1gZMkAyCwoXsHwt": "MER"
+  "BnhsmYVvNjXK3TGDHLj1Yr1jBGCmD1gZMkAyCwoXsHwt": "MER",
+  "9gDF5W94RowoDugxT8cM29cX8pKKQitTp2uYVrarBSQ7": "mSOL",
 }
 
 async function runPartialLiquidator() {
