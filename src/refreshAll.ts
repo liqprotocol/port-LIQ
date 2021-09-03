@@ -12,7 +12,7 @@ async function refreshAllObligations() {
   const cluster = process.env.CLUSTER || 'devnet';
   const clusterUrl = process.env.CLUSTER_URL || "https://api.devnet.solana.com";
   const connection = new Connection(clusterUrl, 'singleGossip');
-  const checkInterval = parseFloat(process.env.CHECK_INTERVAL || '1000.0');
+  const checkInterval = parseFloat(process.env.CHECK_INTERVAL || '300000.0');
 
   // The address of the Port Finance on the blockchain
   const programId = new PublicKey(process.env.PROGRAM_ID || "Port7uDYB3wk6GJAw4KT1WpTeMtSu9bTcChBHkX2LfR")
@@ -35,7 +35,7 @@ async function refreshAllObligations() {
       const totalObligationsCnt: number = nonEmptyBorrowedObligations.length;
       console.log("public key: ", payer.publicKey.toBase58())
       while(counter < totalObligationsCnt) {
-        const batchRefreshCnt = 15;
+        const batchRefreshCnt = 14;
         let nextCounter = Math.min(counter + batchRefreshCnt, totalObligationsCnt);
         await refreshObligations(connection, programId, payer, nonEmptyBorrowedObligations.slice(counter, nextCounter), parsedReserveMap);
         counter = nextCounter;
