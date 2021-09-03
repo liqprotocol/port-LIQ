@@ -121,7 +121,7 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
     .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice, allReserve))
     .sort(
       (obligation1, obligation2) => {
-        return (+obligation2.riskFactor) * 100 - (+obligation1.riskFactor) * 100;
+        return obligation2.riskFactor * 100 - obligation1.riskFactor * 100;
       }
     );
   console.log(
