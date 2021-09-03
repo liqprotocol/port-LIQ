@@ -10,6 +10,7 @@ import { liquidateObligationInstruction } from './instructions/liquidateObligati
 import { AccountLayout, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { redeemReserveCollateralInstruction } from './instructions/redeemReserveCollateral';
 import { parsePriceData } from './pyth/pyth';
+import BN from 'bn.js';
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const DISPLAY_FIRST = 10;
@@ -116,6 +117,7 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
     )
   }
   const sortedObligations =  obligations
+    .filter(obligation => obligation.borrowedValue.gt(new BN(0)))
     .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice, allReserve))
     .sort(
       (obligation1, obligation2) => {

@@ -33,7 +33,7 @@ export async function getAllObligations(connection: Connection, programId: Publi
       filters: [
         {
           dataSize: 916,
-        }
+        },
       ]
     }
   );
