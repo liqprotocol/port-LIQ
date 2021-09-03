@@ -5,7 +5,7 @@ import { bits, blob, struct, u8, u32, nu64 } from 'buffer-layout';
 import { EnrichedReserve, ReserveParser } from './layouts/reserve';
 import { AccountLayout, Token } from '@solana/spl-token';
 import { TransactionInstruction } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID } from './ids';
+import { ATOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from './ids';
 import BN from 'bn.js';
 
 export function notify(content: string) {
@@ -92,8 +92,8 @@ export async function findLargestTokenAccountForOwner(
   let max = -1;
   let maxTokenAccount: null | { mint: PublicKey; owner: PublicKey; amount: number} = null
   let maxPubkey: null | PublicKey = null
-  for (const { pubkey, account } of response.value) {
 
+  for (const { pubkey, account } of response.value) {
     const tokenAccount = parseTokenAccountData(account.data)
     if (tokenAccount.amount > max) {
       maxTokenAccount = tokenAccount
@@ -107,27 +107,27 @@ export async function findLargestTokenAccountForOwner(
   } else {
     console.log("creating new token account")
     const transaction = new Transaction();
-    const tokenAccount = new Account();
-    const rent = await connection.getMinimumBalanceForRentExemption(AccountLayout.span)
+    const aTokenAccountPubkey = (await PublicKey.findProgramAddress(
+      [
+          owner.publicKey.toBuffer(),
+          TOKEN_PROGRAM_ID.toBuffer(),
+          mint.toBuffer(),
+      ],
+      ATOKEN_PROGRAM_ID
+    ))[0];
+
     transaction.add(
-      SystemProgram.createAccount(
-        {
-          fromPubkey: owner.publicKey,
-          newAccountPubkey: tokenAccount.publicKey,
-          lamports: rent,
-          space: AccountLayout.span,
-          programId: new PublicKey(TOKEN_PROGRAM_ID),
-        }
-      ),
-      Token.createInitAccountInstruction(
-        new PublicKey(TOKEN_PROGRAM_ID),
+      Token.createAssociatedTokenAccountInstruction(
+        ATOKEN_PROGRAM_ID,
+        TOKEN_PROGRAM_ID,
         mint,
-        tokenAccount.publicKey,
+        aTokenAccountPubkey,
         owner.publicKey,
+        owner.publicKey
       )
     )
-    await connection.sendTransaction(transaction, [owner, tokenAccount])
-    return {publicKey: tokenAccount.publicKey, tokenAccount: {mint, amount: 0, owner: owner.publicKey}}
+    await connection.sendTransaction(transaction, [owner])
+    return {publicKey: aTokenAccountPubkey, tokenAccount: {mint, amount: 0, owner: owner.publicKey}}
   }
 }
 
@@ -180,13 +180,6 @@ export function createUninitializedAccount(
   signers.push(account);
 
   return account.publicKey;
-}
-
-export async function getAssetPrice(symbol: string): Promise<number> {
-  const res = await axios.get(
-    `https://ftx.com/api/markets/${symbol}/USD`
-  );
-  return res["data"]["result"]["last"];
 }
 
 const TEN = new BN("10", 10);
