@@ -15,6 +15,7 @@ Lending Market: `6T4XxKerq744sSuj3jaoV6QiZ8acirf4TrPwQzHAoSy5`
 | SRM             | ZgS3sv1tJAor2rbGMFLeJwxsEGDiHkcrR2ZaNHZUpyF         |
 | BTC             | DSST29PMCVkxo8cf5ht9LxrPoMc8jAZt98t6nuJywz8p        |
 | MER             | BnhsmYVvNjXK3TGDHLj1Yr1jBGCmD1gZMkAyCwoXsHwt        |
+| mSOL            | 9gDF5W94RowoDugxT8cM29cX8pKKQitTp2uYVrarBSQ7        |
 
 ### pToken Mint
 
@@ -27,6 +28,7 @@ Lending Market: `6T4XxKerq744sSuj3jaoV6QiZ8acirf4TrPwQzHAoSy5`
 | SRM            | 77TBgKmTNtMdGrt1ewNRb56F2Xw6fNLZZj33JZ3oGwXh  |
 | BTC            | QN2HkkBaWHfYSU5bybyups9z1UHu8Eu7QeeyMbjD2JA   |
 | MER            | 6UgGnLA3Lfe8NBLAESctsUXWdP3zjMFzSLEZxS3tiaKh  |
+| mSOL           | Dt1Cuau5m5CSmun8hZstjEh9RszxAmejnq7ZaHNcuXfA  |
 
 ### Oracle Public Keys
 
@@ -55,7 +57,7 @@ Lending Market: `6T4XxKerq744sSuj3jaoV6QiZ8acirf4TrPwQzHAoSy5`
 
 ## Dev Net
 
-Lending Market: H27Quk3DSbu55T4dCr1NddTTSAezXwHU67FPCZVKLhS
+Lending Market: `H27Quk3DSbu55T4dCr1NddTTSAezXwHU67FPCZVKLhSW`
 
 ### Reserve Public Keys
 
