@@ -1,7 +1,7 @@
 import { Account, Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { findLargestTokenAccountForOwner, getAllObligations, getParsedReservesMap, lamportToNumber, notify, sleep, wadToLamport, Wallet } from './utils';
+import { findLargestTokenAccountForOwner, getAllObligations, getParsedReservesMap, lamportToNumber, notify, sleep, STAKING_PROGRAM_ID, wadToLamport, Wallet } from './utils';
 import { EnrichedObligation, Obligation } from './layouts/obligation';
 import { EnrichedReserve} from './layouts/reserve';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
@@ -234,7 +234,8 @@ async function liquidateAccount(
   signers.push(payer);
 
   const transferAuthority = repayReserve.reserve.liquidity.mintPubkey.toBase58() !== SOL_MINT ?
-    liquidateByPayingToken(
+    await liquidateByPayingToken(
+      connection,
       transaction,
       signers,
       repayWallet.tokenAccount.amount,
@@ -247,7 +248,8 @@ async function liquidateAccount(
       lendingMarketAuthority,
       payer,
     ) :
-    liquidateByPayingSOL(
+    await liquidateByPayingSOL(
+      connection,
       transaction,
       signers,
       payerAccount!.lamports - 100_000_000,
@@ -274,6 +276,7 @@ async function liquidateAccount(
 }
 
 function liquidateByPayingSOL(
+  connection: Connection,
   transaction: Transaction,
   signers: Account[],
   amount: number,
@@ -305,6 +308,7 @@ function liquidateByPayingSOL(
   );
 
   const transferAuthority = liquidateByPayingToken(
+    connection,
     transaction,
     signers,
     amount,
@@ -335,7 +339,8 @@ function liquidateByPayingSOL(
   return transferAuthority;
 }
 
-function liquidateByPayingToken(
+async function liquidateByPayingToken(
+  connection: Connection,
   transaction: Transaction,
   signers: Account[],
   amount: number,
@@ -350,6 +355,28 @@ function liquidateByPayingToken(
 ) {
 
     const transferAuthority = new Account();
+    const stakeAccounts = await connection.getProgramAccounts(
+      STAKING_PROGRAM_ID,
+      {
+        filters: [
+          {
+            dataSize: 213
+          },
+          {
+            memcmp: {
+              offset: 1 + 6,
+              bytes: obligation.owner.toBase58(),
+            }
+          },
+          {
+            memcmp: {
+              offset: 1 + 6 + 32,
+              bytes: withdrawReserve.reserve.deposit_staking_pool.toBase58()
+            }
+          }
+        ]
+      }
+    )
 
     transaction.add(
       refreshObligationInstruction(
@@ -377,6 +404,8 @@ function liquidateByPayingToken(
         lendingMarket,
         lendingMarketAuthority,
         transferAuthority.publicKey,
+        withdrawReserve.reserve.deposit_staking_pool_option === 1 ? withdrawReserve.reserve.deposit_staking_pool : undefined,
+        withdrawReserve.reserve.deposit_staking_pool_option === 1 ? stakeAccounts[0].pubkey : undefined,
       ),
     );
 

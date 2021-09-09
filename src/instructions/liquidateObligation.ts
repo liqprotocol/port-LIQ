@@ -10,6 +10,7 @@ import { LendingInstruction } from './instructions';
 import BN = require('bn.js');
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { LENDING_PROGRAM_ID } from '../ids';
+import { STAKING_PROGRAM_ID } from '../utils';
 
 /// Repay borrowed liquidity to a reserve to receive collateral at a discount from an unhealthy
 /// obligation. Requires a refreshed obligation and reserves.
@@ -43,6 +44,8 @@ export const liquidateObligationInstruction = (
   lendingMarket: PublicKey,
   lendingMarketAuthority: PublicKey,
   transferAuthority: PublicKey,
+  staking_pool: PublicKey | undefined,
+  stake_account: PublicKey | undefined
 ): TransactionInstruction => {
   const dataLayout = BufferLayout.struct([
     BufferLayout.u8('instruction'),
@@ -76,6 +79,15 @@ export const liquidateObligationInstruction = (
     { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
   ];
+   if (staking_pool !== undefined && stake_account !== undefined) {
+      keys.concat(
+        [
+          { pubkey: stake_account, isSigner: false, isWritable: true },
+          { pubkey: staking_pool, isSigner: false, isWritable: true },
+          { pubkey: STAKING_PROGRAM_ID, isSigner: false, isWritable: false },
+        ]
+      )
+   }
 
   return new TransactionInstruction({
     keys,

@@ -8,6 +8,8 @@ import { TransactionInstruction } from '@solana/web3.js';
 import { ATOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from './ids';
 import BN from 'bn.js';
 
+export const STAKING_PROGRAM_ID = new PublicKey("stkarvwmSzv2BygN5e2LeTwimTczLWHCKPKGC2zVLiq");
+
 export function notify(content: string) {
   if (process.env.WEBHOOK_URL) {
     axios.post(
