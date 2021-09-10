@@ -1,7 +1,7 @@
 import { Account, Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { findLargestTokenAccountForOwner, getAllObligations, getParsedReservesMap, notify, sleep, STAKING_PROGRAM_ID, TEN, WAD, wadToLamport, wadToNumber, Wallet, ZERO } from './utils';
+import { findLargestTokenAccountForOwner, getAllObligations, getParsedReservesMap, scaleToNormalNumber, notify, sleep, STAKING_PROGRAM_ID, TEN, WAD, wadToBN, wadToNumber, Wallet, ZERO } from './utils';
 import { EnrichedObligation, Obligation } from './layouts/obligation';
 import { EnrichedReserve} from './layouts/reserve';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
@@ -135,15 +135,15 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
   console.log(`Total number of loans are: ${sortedObligations.length}`)
   sortedObligations.slice(0, DISPLAY_FIRST).forEach(
     ob => console.log(
-`Risk factor: ${ob.riskFactor.toFixed(4)} borrowed amount: ${ob.loanValue.toString()} deposit amount: ${ob.collateralValue.toString()} 
-borrowed asset names: [${ob.borrowedAssetNames.toString()}] deposited asset names: [${ob.depositedAssetNames.toString()}] 
+`Risk factor: ${ob.riskFactor.toFixed(4)} borrowed amount: ${scaleToNormalNumber(ob.loanValue, 10)} deposit amount: ${scaleToNormalNumber(ob.collateralValue, 10)}
+borrowed asset names: [${ob.borrowedAssetNames.toString()}] deposited asset names: [${ob.depositedAssetNames.toString()}]
 obligation names: ${ob.obligation.publicKey.toBase58()}
 `
     )
   )
 
   tokenToCurrentPrice.forEach((price: BN, token: string) => {
-    console.log(`name: ${reserveLookUpTable[token]} price: ${price.toString()}`)
+    console.log(`name: ${reserveLookUpTable[token]} price: ${scaleToNormalNumber(price, 10)}`)
   });
   console.log("\n");
   return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
@@ -169,7 +169,7 @@ function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice:
     let reservePubKey = deposit.depositReserve.toBase58();
     let name = reserveLookUpTable[reservePubKey];
     let reserve = allReserve.get(reservePubKey)!.reserve;
-    let totalSupply = reserve.liquidity.availableAmount.add(wadToLamport(reserve.liquidity.borrowedAmountWads));
+    let totalSupply = reserve.liquidity.availableAmount.add(wadToBN(reserve.liquidity.borrowedAmountWads));
     let collateralTotalSupply = reserve.collateral.mintTotalSupply;
     // In percentage
     let liquidationThreshold = reserve.config.liquidationThreshold!;
@@ -179,7 +179,7 @@ function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice:
     depositedAssetNames.push(name);
   }
 
-  const riskFactor = (collateralValue === ZERO || loanValue === ZERO) ? 0 : wadToNumber((loanValue.mul(WAD).div(collateralValue)));
+  const riskFactor = (collateralValue === ZERO || loanValue === ZERO) ? 0 : scaleToNormalNumber((loanValue.mul(WAD).div(collateralValue)), 18);
 
   return {
     loanValue,

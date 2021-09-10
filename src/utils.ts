@@ -9,6 +9,9 @@ import { ATOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from './ids';
 import BN from 'bn.js';
 
 export const STAKING_PROGRAM_ID = new PublicKey("stkarvwmSzv2BygN5e2LeTwimTczLWHCKPKGC2zVLiq");
+export const ZERO = new BN(0);
+export const TEN = new BN(10);
+export const WAD = TEN.pow(new BN(18));
 
 export function notify(content: string) {
   if (process.env.WEBHOOK_URL) {
@@ -184,17 +187,19 @@ export function createUninitializedAccount(
   return account.publicKey;
 }
 
-const TEN = new BN("10", 10);
-const WAD = TEN.pow(new BN(18));
-export function wadToLamport(wad: BN): BN {
+export function wadToNumber(wad: BN, precision: number = 4): number {
+  return wad.div(WAD.div(TEN.pow(new BN(precision)))).toNumber() / Math.pow(10, precision)
+}
+
+export function wadToBN(wad: BN): BN {
   return wad.div(WAD);
 }
 
-export function lamportToNumber(lamport: BN, mintDecimals: number, precision = 4): number {
-  if (mintDecimals < precision) {
-    throw new Error(`Mint decimal is ${mintDecimals} which is too small`);
+export function scaleToNormalNumber(lamport: BN, scaleDecimal: number, precision = 4): number {
+  if (scaleDecimal < precision) {
+    throw new Error(`Scale decimal ${scaleDecimal} is smaller than ${precision}`);
   }
-  return lamport.div(TEN.pow(new BN(mintDecimals - precision))).toNumber() / Math.pow(10, precision);
+  return lamport.div(TEN.pow(new BN(scaleDecimal - precision))).toNumber() / Math.pow(10, precision);
 }
 
 export function parseTokenAccountData(
