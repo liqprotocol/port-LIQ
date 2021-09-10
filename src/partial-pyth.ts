@@ -107,15 +107,21 @@ async function readSymbolPrice(connection: Connection, reserve: EnrichedReserve)
   return parsedData.price;
 }
 
-async function getUnhealthyObligations(connection: Connection, programId: PublicKey, allReserve: Map<string, EnrichedReserve>) {
-  const obligations = await getAllObligations(connection, programId)
+async function readTokenPrices(connection, allReserve: Map<string, EnrichedReserve>): Promise<Map<string, number>> {
   const tokenToCurrentPrice = new Map();
-  for (const [reservePubKey, reserve] of allReserve.entries()) {
+
+  for (const [_, reserve] of allReserve.entries()) {
     tokenToCurrentPrice.set(
       reserve.publicKey.toBase58(),
       await readSymbolPrice(connection, reserve)
     )
   }
+  return tokenToCurrentPrice
+}
+
+async function getUnhealthyObligations(connection: Connection, programId: PublicKey, allReserve: Map<string, EnrichedReserve>) {
+  const obligations = await getAllObligations(connection, programId)
+  const tokenToCurrentPrice = await readTokenPrices(connection, allReserve);
   const sortedObligations =  obligations
     .filter(obligation => obligation.borrowedValue.gt(new BN(0)))
     .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice, allReserve))
