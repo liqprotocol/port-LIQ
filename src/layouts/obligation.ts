@@ -64,9 +64,9 @@ export interface ProtoObligation {
 export interface EnrichedObligation {
   riskFactor: number;
   // loan value in USD
-  loanValue: number;
+  loanValue: BN;
   // collateral value in USD
-  collateralValue: number;
+  collateralValue: BN;
   obligation: Obligation;
   borrowedAssetNames: string[];
   depositedAssetNames: string[];

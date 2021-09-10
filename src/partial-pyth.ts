@@ -1,7 +1,7 @@
 import { Account, Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { findLargestTokenAccountForOwner, getAllObligations, getParsedReservesMap, lamportToNumber, notify, sleep, STAKING_PROGRAM_ID, wadToLamport, Wallet } from './utils';
+import { findLargestTokenAccountForOwner, getAllObligations, getParsedReservesMap, notify, sleep, STAKING_PROGRAM_ID, TEN, WAD, wadToLamport, wadToNumber, Wallet, ZERO } from './utils';
 import { EnrichedObligation, Obligation } from './layouts/obligation';
 import { EnrichedReserve} from './layouts/reserve';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
@@ -9,7 +9,7 @@ import { refreshObligationInstruction } from './instructions/refreshObligation';
 import { liquidateObligationInstruction } from './instructions/liquidateObligation';
 import { AccountLayout, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { redeemReserveCollateralInstruction } from './instructions/redeemReserveCollateral';
-import { parsePriceData } from './pyth/pyth';
+import { parsePriceData } from '@pythnetwork/client';
 import BN from 'bn.js';
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
@@ -96,18 +96,19 @@ function redeemRemainingCollaterals(parsedReserveMap: Map<string, EnrichedReserv
   );
 }
 
-async function readSymbolPrice(connection: Connection, reserve: EnrichedReserve): Promise<number> {
+async function readSymbolPrice(connection: Connection, reserve: EnrichedReserve): Promise<BN> {
   if (reserve.reserve.liquidity.oracleOption === 0) {
-    return wadToLamport(reserve.reserve.liquidity.marketPrice).toNumber();
+    return reserve.reserve.liquidity.marketPrice.div(TEN.pow(new BN(8)));
   }
 
   const pythData = await connection.getAccountInfo(reserve.reserve.liquidity.oraclePubkey);
   const parsedData = parsePriceData(pythData?.data!);
 
-  return parsedData.price;
+  // we use a 10 ^ 10 scale.
+  return new BN(parsedData.price * 10 ** 10);
 }
 
-async function readTokenPrices(connection, allReserve: Map<string, EnrichedReserve>): Promise<Map<string, number>> {
+async function readTokenPrices(connection, allReserve: Map<string, EnrichedReserve>): Promise<Map<string, BN>> {
   const tokenToCurrentPrice = new Map();
 
   for (const [_, reserve] of allReserve.entries()) {
@@ -123,42 +124,44 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
   const obligations = await getAllObligations(connection, programId)
   const tokenToCurrentPrice = await readTokenPrices(connection, allReserve);
   const sortedObligations =  obligations
-    .filter(obligation => obligation.borrowedValue.gt(new BN(0)))
+    .filter(obligation => obligation.borrowedValue.gt(ZERO))
     .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice, allReserve))
     .sort(
       (obligation1, obligation2) => {
         return obligation2.riskFactor * 100 - obligation1.riskFactor * 100;
       }
     );
-  console.log(
-    `Total number of loans are: ${sortedObligations.length},
-     The highest risk factors are: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.riskFactor.toFixed(4))},
-     Borrow amount: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.loanValue.toFixed(2))}
-     Deposit value: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => obligation.collateralValue.toFixed(2))}
-     Borrow assets: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.borrowedAssetNames.toString()}]`)}
-     Deposit assets: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.depositedAssetNames.toString()}]`)}
-     Obligation pubkey: ${sortedObligations.slice(0, DISPLAY_FIRST).map(obligation => `[${obligation.obligation.publicKey.toBase58()}]`)}
-     `);
 
-  tokenToCurrentPrice.forEach((price: number, token: string) => {
-    console.log(`name: ${reserveLookUpTable[token]} price: ${price}`)
+  console.log(`Total number of loans are: ${sortedObligations.length}`)
+  sortedObligations.slice(0, DISPLAY_FIRST).forEach(
+    ob => console.log(
+`Risk factor: ${ob.riskFactor.toFixed(4)} borrowed amount: ${ob.loanValue.toString()} deposit amount: ${ob.collateralValue.toString()} 
+borrowed asset names: [${ob.borrowedAssetNames.toString()}] deposited asset names: [${ob.depositedAssetNames.toString()}] 
+obligation names: ${ob.obligation.publicKey.toBase58()}
+`
+    )
+  )
+
+  tokenToCurrentPrice.forEach((price: BN, token: string) => {
+    console.log(`name: ${reserveLookUpTable[token]} price: ${price.toString()}`)
   });
   console.log("\n");
   return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
 }
 
-function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice: Map<string, number>, allReserve: Map<string, EnrichedReserve>): EnrichedObligation {
-  let loanValue = 0.0;
+function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice: Map<string, BN>, allReserve: Map<string, EnrichedReserve>): EnrichedObligation {
+  let loanValue = ZERO;
   const borrowedAssetNames: string[] = [];
   for (const borrow of obligation.borrows) {
     let reservePubKey = borrow.borrowReserve.toBase58();
     let reserve = allReserve.get(reservePubKey)!.reserve;
     let name = reserveLookUpTable[reservePubKey];
-    loanValue += lamportToNumber(wadToLamport(borrow.borrowedAmountWads), reserve.liquidity.mintDecimals) * tokenToCurrentPrice.get(reservePubKey)!;
+    let tokenPriceWad = tokenToCurrentPrice.get(reservePubKey)!;
+    let totalPriceWad = borrow.borrowedAmountWads.mul(tokenPriceWad).div(WAD).div(TEN.pow(new BN(reserve.liquidity.mintDecimals)))
+    loanValue = loanValue.add(totalPriceWad)
     borrowedAssetNames.push(name);
   }
-
-  let collateralValue = 0.0;
+  let collateralValue = ZERO;
   const depositedAssetNames: string[] = [];
 
   for (const deposit of obligation.deposits) {
@@ -170,12 +173,13 @@ function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice:
     let collateralTotalSupply = reserve.collateral.mintTotalSupply;
     // In percentage
     let liquidationThreshold = reserve.config.liquidationThreshold!;
-    collateralValue += (lamportToNumber(
-      deposit.depositedAmount.mul(totalSupply).div(collateralTotalSupply), reserve.liquidity.mintDecimals) * tokenToCurrentPrice.get(reservePubKey)! * liquidationThreshold / 100);
+    let tokenPriceWad = tokenToCurrentPrice.get(reservePubKey)!;
+    let totalPriceWad = deposit.depositedAmount.mul(totalSupply).mul(tokenPriceWad).mul(new BN(liquidationThreshold)).div(collateralTotalSupply).div(new BN(100)).div(TEN.pow(new BN(reserve.liquidity.mintDecimals)))
+    collateralValue = collateralValue.add(totalPriceWad)
     depositedAssetNames.push(name);
   }
 
-  const riskFactor = (collateralValue === 0 || loanValue === 0) ? 0 : loanValue / collateralValue;
+  const riskFactor = (collateralValue === ZERO || loanValue === ZERO) ? 0 : wadToNumber((loanValue.mul(WAD).div(collateralValue)));
 
   return {
     loanValue,
