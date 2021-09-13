@@ -16,6 +16,7 @@ Lending Market: `6T4XxKerq744sSuj3jaoV6QiZ8acirf4TrPwQzHAoSy5`
 | BTC             | DSST29PMCVkxo8cf5ht9LxrPoMc8jAZt98t6nuJywz8p        |
 | MER             | BnhsmYVvNjXK3TGDHLj1Yr1jBGCmD1gZMkAyCwoXsHwt        |
 | mSOL            | 9gDF5W94RowoDugxT8cM29cX8pKKQitTp2uYVrarBSQ7        |
+| pSOL            | GRJyCEezbZQibAEfBKCRAg5YoTPP2UcRSTC7RfzoMypy        |
 
 ### pToken Mint
 
@@ -41,7 +42,7 @@ Lending Market: `6T4XxKerq744sSuj3jaoV6QiZ8acirf4TrPwQzHAoSy5`
 | SRM             | 3NBReDRTLKMQEKiLD5tGcx4kXbTf88b7f2xLS9UuGjym  |
 | BTC             | GVXRSBjFk6e6J3NbVPXohDJetcTjaeeuykUpbQF8UoMU  |
 | MER             | G4AQpTYKH1Fmg38VpFQbv6uKYQMpRhJzNPALhp7hqdrs  |
-
+| pSOL             | H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG  |
 
 ### Supply Public Keys
 | Asset Name     | Supply Public Keys                            |
