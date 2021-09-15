@@ -1,0 +1,12 @@
+version: "3.3"
+services:
+  portfinance-liquidator:
+    image: portfinance-liquidator
+    restart: unless-stopped
+    env_file: .env
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - "./id.json:${KEYPAIR}"
+
