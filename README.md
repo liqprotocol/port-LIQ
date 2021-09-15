@@ -22,7 +22,7 @@ export CHECK_INTERVAL="1000.0"
 ```
 yarn install
 source .env
-yarn pyth
+yarn liquidator
 ```
 
 ### Run with Docker
