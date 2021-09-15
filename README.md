@@ -18,11 +18,16 @@ export CHECK_INTERVAL="1000.0"
 
 `CHECK_INTERVAL` is the amount of milliseconds to wait between querying user's loan
 
-### Run
+### Run with yarn
 ```
 yarn install
 source .env
 yarn pyth
+```
+
+### Run with Docker
+```
+docker-compose up --build -d
 ```
 
 ### Contribution
