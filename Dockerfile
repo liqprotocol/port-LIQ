@@ -5,7 +5,7 @@ RUN mkdir -p /app
 WORKDIR /app
 
 COPY . ./
-RUN yarn install --frozen-lockfile --no-cache --production
+RUN yarn install
 
 # Runner
 FROM node:alpine3.14
