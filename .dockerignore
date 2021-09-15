@@ -1,4 +1,7 @@
+.git
+
 .env
 docker-compose.yaml
 Dockerfile
+
 id.json
