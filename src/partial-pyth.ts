@@ -121,11 +121,16 @@ async function readTokenPrices(connection, allReserve: Map<string, EnrichedReser
   return tokenToCurrentPrice
 }
 
+function willNeverLiquidate(obligation: Obligation): boolean {
+  return obligation.borrows.length === 1 && obligation.deposits.length === 1 && obligation.borrows[0].borrowReserve.toBase58() === obligation.deposits[0].depositReserve.toBase58()
+}
+
 async function getUnhealthyObligations(connection: Connection, programId: PublicKey, allReserve: Map<string, EnrichedReserve>) {
   const obligations = await getAllObligations(connection, programId)
   const tokenToCurrentPrice = await readTokenPrices(connection, allReserve);
   const sortedObligations =  obligations
     .filter(obligation => obligation.borrowedValue.gt(ZERO))
+    .filter(obligation => !willNeverLiquidate(obligation))
     .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice, allReserve))
     .sort(
       (obligation1, obligation2) => {
