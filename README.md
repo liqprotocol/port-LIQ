@@ -6,6 +6,7 @@ To run the liquidator you will need:
 * A Solana account with some SOL deposited to cover transaction fees
 * Token accounts for each token in the reserve
 * Roughly equal deposits for each token.
+
 ### Setup
 Make sure to edit the .env file to look something like this:
 ```
@@ -29,6 +30,8 @@ yarn liquidator
 ```
 docker-compose up --build -d
 ```
+
+**KEYPAIR** value will be read from `.env` file to locate the private key file.
 
 ### Contribution
 We welcome contributions. Substantial contribution is eligible for PORT token or USD rewards.
