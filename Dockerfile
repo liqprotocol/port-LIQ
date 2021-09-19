@@ -16,5 +16,4 @@ COPY --from=builder /app /app
 
 WORKDIR /app
 
-COPY entrypoint.sh /
-ENTRYPOINT [ "/entrypoint.sh" ]
+ENTRYPOINT [ "yarn", "liquidator" ]

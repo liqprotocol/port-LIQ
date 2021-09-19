@@ -31,7 +31,7 @@ yarn liquidator
 docker-compose up --build -d
 ```
 
-**KEYPAIR** value will be read from `.env` file to locate the private key file.
+You must put your private key file **id.json** at the root level of this folder, or update the default volume value (in `docker-compose.yaml` file) from `./id.json` to the location of your private key file.
 
 ### Contribution
 We welcome contributions. Substantial contribution is eligible for PORT token or USD rewards.
