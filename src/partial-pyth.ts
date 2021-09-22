@@ -147,7 +147,7 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
       }
     );
 
-  console.log(`Total number of loans are: ${sortedObligations.length}`)
+  console.log(`Total number of loans are ${obligations.length} and possible liquidation debts are ${sortedObligations.length}`)
   sortedObligations.slice(0, DISPLAY_FIRST).forEach(
     ob => console.log(
 `Risk factor: ${ob.riskFactor.toFixed(4)} borrowed amount: ${scaleToNormalNumber(ob.loanValue, 10)} deposit amount: ${scaleToNormalNumber(ob.collateralValue, 10)}
