@@ -3,6 +3,7 @@ import * as BufferLayout from 'buffer-layout';
 import * as Layout from './layout';
 import { LastUpdate } from './lastUpdate';
 import Big from 'big.js';
+import { PortBalance } from '@port.finance/port-sdk/lib/models/PortBalance';
 
 export const ObligationLayout: typeof BufferLayout.Structure = BufferLayout.struct(
   [
@@ -67,7 +68,7 @@ export interface EnrichedObligation {
   loanValue: Big;
   // collateral value in USD
   collateralValue: Big;
-  obligation: Obligation;
+  obligation: PortBalance;
   borrowedAssetNames: string[];
   depositedAssetNames: string[];
 }
