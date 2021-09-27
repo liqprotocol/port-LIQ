@@ -2,7 +2,7 @@ import { AccountInfo, PublicKey } from '@solana/web3.js';
 import * as BufferLayout from 'buffer-layout';
 import * as Layout from './layout';
 import { LastUpdate } from './lastUpdate';
-import BN = require('bn.js');
+import Big from 'big.js';
 
 export const ObligationLayout: typeof BufferLayout.Structure = BufferLayout.struct(
   [
@@ -52,10 +52,10 @@ export interface ProtoObligation {
   lastUpdate: LastUpdate;
   lendingMarket: PublicKey;
   owner: PublicKey;
-  depositedValue: BN; // decimals
-  borrowedValue: BN; // decimals
-  allowedBorrowValue: BN; // decimals
-  unhealthyBorrowValue: BN; // decimals
+  depositedValue: Big; // decimals
+  borrowedValue: Big; // decimals
+  allowedBorrowValue: Big; // decimals
+  unhealthyBorrowValue: Big; // decimals
   depositsLen: number;
   borrowsLen: number;
   dataFlat: Buffer;
@@ -64,9 +64,9 @@ export interface ProtoObligation {
 export interface EnrichedObligation {
   riskFactor: number;
   // loan value in USD
-  loanValue: BN;
+  loanValue: Big;
   // collateral value in USD
-  collateralValue: BN;
+  collateralValue: Big;
   obligation: Obligation;
   borrowedAssetNames: string[];
   depositedAssetNames: string[];
@@ -80,23 +80,23 @@ export interface Obligation {
   owner: PublicKey;
   deposits: ObligationCollateral[];
   borrows: ObligationLiquidity[];
-  depositedValue: BN; // decimals
-  borrowedValue: BN; // decimals
-  allowedBorrowValue: BN; // decimals
-  unhealthyBorrowValue: BN; // decimals
+  depositedValue: Big; // decimals
+  borrowedValue: Big; // decimals
+  allowedBorrowValue: Big; // decimals
+  unhealthyBorrowValue: Big; // decimals
 }
 
 export interface ObligationCollateral {
   depositReserve: PublicKey;
-  depositedAmount: BN;
-  marketValue: BN; // decimals
+  depositedAmount: Big;
+  marketValue: Big; // decimals
 }
 
 export interface ObligationLiquidity {
   borrowReserve: PublicKey;
-  cumulativeBorrowRateWads: BN; // decimals
-  borrowedAmountWads: BN; // decimals
-  marketValue: BN; // decimals
+  cumulativeBorrowRateWads: Big; // decimals
+  borrowedAmountWads: Big; // decimals
+  marketValue: Big; // decimals
 }
 
 export const ObligationParser = (
@@ -118,7 +118,7 @@ export const ObligationParser = (
     dataFlat,
   } = ObligationLayout.decode(buffer) as ProtoObligation;
 
-  if (lastUpdate.slot.isZero()) {
+  if (lastUpdate.slot.eq(new Big(0))) {
     return;
   }
 

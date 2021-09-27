@@ -6,12 +6,13 @@ import { EnrichedReserve, ReserveParser } from './layouts/reserve';
 import { AccountLayout, Token } from '@solana/spl-token';
 import { TransactionInstruction } from '@solana/web3.js';
 import { ATOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from './ids';
-import BN from 'bn.js';
+// import BN from 'bn.js';
+import Big from 'big.js';
 
 export const STAKING_PROGRAM_ID = new PublicKey("stkarvwmSzv2BygN5e2LeTwimTczLWHCKPKGC2zVLiq");
-export const ZERO = new BN(0);
-export const TEN = new BN(10);
-export const WAD = TEN.pow(new BN(18));
+export const ZERO: Big = new Big(0);
+export const TEN: Big = new Big(10);
+export const WAD: Big = TEN.pow(18);
 
 export function notify(content: string) {
   if (process.env.WEBHOOK_URL) {
@@ -187,19 +188,19 @@ export function createUninitializedAccount(
   return account.publicKey;
 }
 
-export function wadToNumber(wad: BN, precision: number = 4): number {
-  return wad.div(WAD.div(TEN.pow(new BN(precision)))).toNumber() / Math.pow(10, precision)
+export function wadToNumber(wad: Big, precision: number = 4): number {
+  return wad.div(WAD.div(TEN.pow(new Big(precision)))).toNumber() / Math.pow(10, precision)
 }
 
-export function wadToBN(wad: BN): BN {
+export function wadToBN(wad: Big): Big {
   return wad.div(WAD);
 }
 
-export function scaleToNormalNumber(lamport: BN, scaleDecimal: number, precision = 4): number {
+export function scaleToNormalNumber(lamport: Big, scaleDecimal: number, precision = 4): number {
   if (scaleDecimal < precision) {
     throw new Error(`Scale decimal ${scaleDecimal} is smaller than ${precision}`);
   }
-  return lamport.div(TEN.pow(new BN(scaleDecimal - precision))).toNumber() / Math.pow(10, precision);
+  return lamport.div(TEN.pow(scaleDecimal - precision)).toNumber() / Math.pow(10, precision);
 }
 
 export function parseTokenAccountData(

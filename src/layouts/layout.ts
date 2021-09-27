@@ -1,5 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import BN = require('bn.js');
+import Big from 'big.js';
 import * as BufferLayout from 'buffer-layout';
 
 /**
@@ -34,16 +35,18 @@ export const uint64 = (property = 'uint64'): unknown => {
 
   layout.decode = (buffer: Buffer, offset: number) => {
     const data = _decode(buffer, offset);
-    return new BN(
-      [...data]
-        .reverse()
-        .map(i => `00${i.toString(16)}`.slice(-2))
-        .join(''),
-      16,
+    return new Big(
+      (new BN(
+        [...data]
+          .reverse()
+          .map(i => `00${i.toString(16)}`.slice(-2))
+          .join(''),
+        16,
+      )).toString()
     );
   };
 
-  layout.encode = (num: BN, buffer: Buffer, offset: number) => {
+  layout.encode = (num: Big, buffer: Buffer, offset: number) => {
     const a = num.toArray().reverse();
     let b = Buffer.from(a);
     if (b.length !== 8) {
@@ -66,16 +69,18 @@ export const uint128 = (property = 'uint128'): unknown => {
 
   layout.decode = (buffer: Buffer, offset: number) => {
     const data = _decode(buffer, offset);
-    return new BN(
-      [...data]
-        .reverse()
-        .map(i => `00${i.toString(16)}`.slice(-2))
-        .join(''),
-      16,
+    return new Big(
+      (new BN(
+        [...data]
+          .reverse()
+          .map(i => `00${i.toString(16)}`.slice(-2))
+          .join(''),
+        16,
+      )).toString()
     );
   };
 
-  layout.encode = (num: BN, buffer: Buffer, offset: number) => {
+  layout.encode = (num: Big, buffer: Buffer, offset: number) => {
     const a = num.toArray().reverse();
     let b = Buffer.from(a);
     if (b.length !== 16) {

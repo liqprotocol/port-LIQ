@@ -1,6 +1,7 @@
-import BN from 'bn.js';
+import Big from 'big.js';
 import * as BufferLayout from 'buffer-layout';
 import * as Layout from './layout';
+
 
 export const LastUpdateLayout: typeof BufferLayout.Structure = BufferLayout.struct(
   [Layout.uint64('slot'), BufferLayout.u8('stale')],
@@ -8,6 +9,6 @@ export const LastUpdateLayout: typeof BufferLayout.Structure = BufferLayout.stru
 );
 
 export interface LastUpdate {
-  slot: BN;
+  slot: Big;
   stale: boolean;
 }

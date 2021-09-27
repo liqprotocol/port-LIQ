@@ -10,7 +10,7 @@ import { liquidateObligationInstruction } from './instructions/liquidateObligati
 import { AccountLayout, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { redeemReserveCollateralInstruction } from './instructions/redeemReserveCollateral';
 import { parsePriceData } from '@pythnetwork/client';
-import BN from 'bn.js';
+import Big from 'big.js';
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const DISPLAY_FIRST = 10;
@@ -25,12 +25,13 @@ const reserveLookUpTable = {
   "BnhsmYVvNjXK3TGDHLj1Yr1jBGCmD1gZMkAyCwoXsHwt": "MER",
   "9gDF5W94RowoDugxT8cM29cX8pKKQitTp2uYVrarBSQ7": "mSOL",
   "GRJyCEezbZQibAEfBKCRAg5YoTPP2UcRSTC7RfzoMypy": "pSOL",
+  "7dXHPrJtwBjQqU1pLKfkHbq9TjQAK9jTms3rnj1i3G77": "SBR"
 }
 
 async function runPartialLiquidator() {
-  const cluster = process.env.CLUSTER || 'devnet'
-  const clusterUrl = process.env.CLUSTER_URL || "https://api.devnet.solana.com"
-  const checkInterval = parseFloat(process.env.CHECK_INTERVAL || "1000.0")
+  // const cluster = process.env.CLUSTER || 'devnet'
+  const clusterUrl = process.env.CLUSTER_URL || "https://api.mainnet-beta.solana.com"
+  const checkInterval = parseFloat(process.env.CHECK_INTERVAL || "5000.0")
   const connection = new Connection(clusterUrl, 'singleGossip')
 
   // The address of the Port Finance on the blockchain
@@ -40,7 +41,7 @@ async function runPartialLiquidator() {
   const keyPairPath = process.env.KEYPAIR || `${homedir()}/.config/solana/id.json`
   const payer = new Account(JSON.parse(fs.readFileSync(keyPairPath, 'utf-8')))
 
-  console.log(`Port liquidator launched on cluster=${cluster}`);
+  console.log(`Port liquidator launched on cluster=${clusterUrl}`);
 
   const parsedReserveMap = await getParsedReservesMap(connection, programId);
   const wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }> = new Map();
@@ -97,19 +98,18 @@ function redeemRemainingCollaterals(parsedReserveMap: Map<string, EnrichedReserv
   );
 }
 
-async function readSymbolPrice(connection: Connection, reserve: EnrichedReserve): Promise<BN> {
+async function readSymbolPrice(connection: Connection, reserve: EnrichedReserve): Promise<Big> {
   if (reserve.reserve.liquidity.oracleOption === 0) {
-    return reserve.reserve.liquidity.marketPrice.div(TEN.pow(new BN(8)));
+    return reserve.reserve.liquidity.marketPrice.div(WAD);
   }
 
   const pythData = await connection.getAccountInfo(reserve.reserve.liquidity.oraclePubkey);
   const parsedData = parsePriceData(pythData?.data!);
 
-  // we use a 10 ^ 10 scale.
-  return new BN(parsedData.price * 10 ** 10);
+  return new Big(parsedData.price);
 }
 
-async function readTokenPrices(connection, allReserve: Map<string, EnrichedReserve>): Promise<Map<string, BN>> {
+async function readTokenPrices(connection, allReserve: Map<string, EnrichedReserve>): Promise<Map<string, Big>> {
   const tokenToCurrentPrice = new Map();
 
   for (const [_, reserve] of allReserve.entries()) {
@@ -150,30 +150,30 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
   console.log(`Total number of loans are ${obligations.length} and possible liquidation debts are ${sortedObligations.length}`)
   sortedObligations.slice(0, DISPLAY_FIRST).forEach(
     ob => console.log(
-`Risk factor: ${ob.riskFactor.toFixed(4)} borrowed amount: ${scaleToNormalNumber(ob.loanValue, 10)} deposit amount: ${scaleToNormalNumber(ob.collateralValue, 10)}
+`Risk factor: ${ob.riskFactor.toFixed(4)} borrowed amount: ${ob.loanValue} deposit amount: ${ob.collateralValue}
 borrowed asset names: [${ob.borrowedAssetNames.toString()}] deposited asset names: [${ob.depositedAssetNames.toString()}]
 obligation names: ${ob.obligation.publicKey.toBase58()}
 `
     )
   )
 
-  tokenToCurrentPrice.forEach((price: BN, token: string) => {
-    console.log(`name: ${reserveLookUpTable[token]} price: ${scaleToNormalNumber(price, 10)}`)
+  tokenToCurrentPrice.forEach((price: Big, token: string) => {
+    console.log(`name: ${reserveLookUpTable[token]} price: ${price.toString()}`)
   });
   console.log("\n");
   return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
 }
 
-function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice: Map<string, BN>, allReserve: Map<string, EnrichedReserve>): EnrichedObligation {
+function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice: Map<string, Big>, allReserve: Map<string, EnrichedReserve>): EnrichedObligation {
   let loanValue = ZERO;
   const borrowedAssetNames: string[] = [];
   for (const borrow of obligation.borrows) {
     let reservePubKey = borrow.borrowReserve.toBase58();
     let reserve = allReserve.get(reservePubKey)!.reserve;
     let name = reserveLookUpTable[reservePubKey];
-    let tokenPriceWad = tokenToCurrentPrice.get(reservePubKey)!;
-    let totalPriceWad = borrow.borrowedAmountWads.mul(tokenPriceWad).div(WAD).div(TEN.pow(new BN(reserve.liquidity.mintDecimals)))
-    loanValue = loanValue.add(totalPriceWad)
+    let tokenPrice = tokenToCurrentPrice.get(reservePubKey)!;
+    let totalPrice = borrow.borrowedAmountWads.mul(tokenPrice).div(WAD).div(TEN.pow(reserve.liquidity.mintDecimals))
+    loanValue = loanValue.add(totalPrice)
     borrowedAssetNames.push(name);
   }
   let collateralValue = ZERO;
@@ -188,9 +188,10 @@ function generateEnrichedObligation(obligation: Obligation, tokenToCurrentPrice:
     let collateralTotalSupply = reserve.collateral.mintTotalSupply;
     // In percentage
     let liquidationThreshold = reserve.config.liquidationThreshold!;
-    let tokenPriceWad = tokenToCurrentPrice.get(reservePubKey)!;
-    let totalPriceWad = deposit.depositedAmount.mul(totalSupply).mul(tokenPriceWad).mul(new BN(liquidationThreshold)).div(collateralTotalSupply).div(new BN(100)).div(TEN.pow(new BN(reserve.liquidity.mintDecimals)))
-    collateralValue = collateralValue.add(totalPriceWad)
+    let tokenPrice = tokenToCurrentPrice.get(reservePubKey)!;
+    // divide by 100 to account for liquidation threshold
+    let totalPrice = deposit.depositedAmount.mul(totalSupply).mul(tokenPrice).mul(new Big(liquidationThreshold)).div(collateralTotalSupply).div(new Big(100)).div(TEN.pow(reserve.liquidity.mintDecimals))
+    collateralValue = collateralValue.add(totalPrice)
     depositedAssetNames.push(name);
   }
 

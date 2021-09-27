@@ -3,7 +3,7 @@ import { AccountInfo, PublicKey } from '@solana/web3.js';
 import * as BufferLayout from 'buffer-layout';
 import * as Layout from './layout';
 import { LastUpdate, LastUpdateLayout } from './lastUpdate';
-import BN = require('bn.js');
+import Big from 'big.js';
 
 export interface EnrichedReserve {
   publicKey: PublicKey,
@@ -30,15 +30,15 @@ export interface ReserveLiquidity {
   // @FIXME: oracle option
   oracleOption: number;
   oraclePubkey: PublicKey;
-  availableAmount: BN;
-  borrowedAmountWads: BN;
-  cumulativeBorrowRateWads: BN;
-  marketPrice: BN;
+  availableAmount: Big;
+  borrowedAmountWads: Big;
+  cumulativeBorrowRateWads: Big;
+  marketPrice: Big;
 }
 
 export interface ReserveCollateral {
   mintPubkey: PublicKey;
-  mintTotalSupply: BN;
+  mintTotalSupply: Big;
   supplyPubkey: PublicKey;
 }
 
@@ -51,7 +51,7 @@ export interface ReserveConfig {
   optimalBorrowRate: number;
   maxBorrowRate: number;
   fees: {
-    borrowFeeWad: BN;
+    borrowFeeWad: Big;
     hostFeePercentage: number;
   };
 }
@@ -122,7 +122,7 @@ export const isReserve = (info: AccountInfo<Buffer>) => {
 export const ReserveParser = (pubkey: PublicKey, info: AccountInfo<Buffer>) => {
   const buffer = Buffer.from(info.data);
   const reserve = ReserveLayout.decode(buffer) as Reserve;
-  if (reserve.lastUpdate.slot.isZero()) {
+  if (reserve.lastUpdate.slot.eq(new Big(0))) {
     return;
   }
 
