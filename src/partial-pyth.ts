@@ -450,7 +450,14 @@ async function liquidateByPayingToken(
     return transferAuthority;
 }
 
-async function redeemCollateral(wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet; }>, withdrawReserve: ReserveInfo, payer: Account, tokenwallet: { publicKey: PublicKey; tokenAccount: Wallet; }, lendingMarketAuthority: PublicKey, connection: Connection) {
+async function redeemCollateral(
+  wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet; }>,
+  withdrawReserve: ReserveInfo,
+  payer: Account,
+  tokenwallet: { publicKey: PublicKey; tokenAccount: Wallet; },
+  lendingMarketAuthority: PublicKey,
+  connection: Connection
+) {
   const transaction = new Transaction();
   const transferAuthority = new Account();
   if (tokenwallet.tokenAccount.amount === 0) {
