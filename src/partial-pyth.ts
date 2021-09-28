@@ -67,9 +67,9 @@ async function runPartialLiquidator() {
       const unhealthyObligations = await getUnhealthyObligations(connection);
       console.log(`Time: ${new Date()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
       for (const unhealthyObligation of unhealthyObligations) {
-        // notify(
-        //   `Liquidating obligation account ${unhealthyObligation.obligation.publicKey.toBase58()} which is owned by ${unhealthyObligation.obligation.owner.toBase58()} with risk factor: ${unhealthyObligation.riskFactor}
-        //    which has borrowed ${unhealthyObligation.loanValue} with liquidation borrowed value at ${unhealthyObligation.obligation.unhealthyBorrowValue} ...`)
+        notify(
+          `Liquidating obligation account ${unhealthyObligation.obligation.getPortId().toString()} which is owned by ${unhealthyObligation.obligation.owner.toBase58()} with risk factor: ${unhealthyObligation.riskFactor}
+           which has borrowed ${unhealthyObligation.loanValue} ...`)
         await liquidateAccount(connection, programId, payer, unhealthyObligation, parsedReserveMap, wallets);
       }
 
