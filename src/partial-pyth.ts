@@ -126,7 +126,7 @@ async function readTokenPrices(connection, allReserve: Map<string, EnrichedReser
 function willNeverLiquidate(obligation: PortBalance): boolean {
   const loans = obligation.getLoans()
   const collaterals = obligation.getCollaterals()
-  return loans.length === 1 && collaterals.length === 1 && loans[0].getReserveId() === collaterals[0].getReserveId()
+  return loans.length === 1 && collaterals.length === 1 && loans[0].getReserveId().toString() === collaterals[0].getReserveId().toString()
 }
 
 function isInsolvent(obligation: PortBalance): boolean {
@@ -140,8 +140,6 @@ function isNoBorrow(obligation: PortBalance): boolean {
 async function getUnhealthyObligations(connection: Connection, programId: PublicKey, allReserve: Map<string, EnrichedReserve>) {
   const mainnetPort = Port.forMainNet()
   const portBalances = await mainnetPort.getAllPortBalances()
-  console.log(portBalances.length)
-  // const obligations = await getAllObligations(connection, programId)
   const tokenToCurrentPrice = await readTokenPrices(connection, allReserve);
   const sortedObligations =  portBalances
     .filter(obligation => !isNoBorrow(obligation))
