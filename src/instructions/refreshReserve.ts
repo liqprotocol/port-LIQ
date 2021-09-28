@@ -1,11 +1,10 @@
+import { ReserveInfo } from '@port.finance/port-sdk/lib/models/ReserveInfo';
 import {
-  PublicKey,
   SYSVAR_CLOCK_PUBKEY,
   TransactionInstruction,
 } from '@solana/web3.js';
 import * as BufferLayout from 'buffer-layout';
 import { LENDING_PROGRAM_ID } from '../ids';
-import { EnrichedReserve } from '../layouts/reserve';
 import { LendingInstruction } from './instructions';
 
 /// Accrue interest and update market price of liquidity on a reserve.
@@ -18,7 +17,7 @@ import { LendingInstruction } from './instructions';
 ///                     Required if the reserve currency is not the lending market quote
 ///                     currency.
 export const refreshReserveInstruction = (
-  reserve: EnrichedReserve,
+  reserve: ReserveInfo,
 ): TransactionInstruction => {
   const dataLayout = BufferLayout.struct([BufferLayout.u8('instruction')]);
 
@@ -26,13 +25,13 @@ export const refreshReserveInstruction = (
   dataLayout.encode({ instruction: LendingInstruction.RefreshReserve }, data);
 
   const keys = [
-    { pubkey: reserve.publicKey, isSigner: false, isWritable: true },
+    { pubkey: reserve.getReserveId().key, isSigner: false, isWritable: true },
     { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
   ];
 
-  if (reserve.reserve.liquidity.oracleOption === 1) {
+  if (reserve.getOracleId() !== null) {
     keys.push({
-      pubkey: reserve.reserve.liquidity.oraclePubkey,
+      pubkey: reserve.getOracleId()!.key,
       isSigner: false,
       isWritable: false,
     });
