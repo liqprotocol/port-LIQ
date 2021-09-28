@@ -64,7 +64,7 @@ async function runPartialLiquidator() {
     try {
       redeemRemainingCollaterals(parsedReserveMap, programId, connection, payer, wallets);
 
-      const unhealthyObligations = await getUnhealthyObligations(connection, programId);
+      const unhealthyObligations = await getUnhealthyObligations(connection);
       console.log(`Time: ${new Date()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
       for (const unhealthyObligation of unhealthyObligations) {
         // notify(
@@ -138,7 +138,7 @@ function isNoBorrow(obligation: PortBalance): boolean {
   return obligation.getLoans().length === 0;
 }
 
-async function getUnhealthyObligations(connection: Connection, programId: PublicKey) {
+async function getUnhealthyObligations(connection: Connection) {
   const mainnetPort = Port.forMainNet()
   const portBalances = await mainnetPort.getAllPortBalances()
   const reserves = await mainnetPort.getReserveContext()
@@ -391,17 +391,17 @@ async function liquidateByPayingToken(
       {
         filters: [
           {
-            dataSize: 213
+            dataSize: 233
           },
           {
             memcmp: {
-              offset: 1 + 6,
+              offset: 1 + 16,
               bytes: obligation.owner.toBase58(),
             }
           },
           {
             memcmp: {
-              offset: 1 + 6 + 32,
+              offset: 1 + 16 + 32,
               bytes: withdrawReserve.reserve.deposit_staking_pool.toBase58()
             }
           }
