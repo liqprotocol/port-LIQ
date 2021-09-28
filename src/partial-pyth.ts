@@ -1,9 +1,9 @@
 import { Account, Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { findLargestTokenAccountForOwner, getAllObligations, getParsedReservesMap, scaleToNormalNumber, notify, sleep, STAKING_PROGRAM_ID, TEN, WAD, wadToBN, wadToNumber, Wallet, ZERO } from './utils';
-import { EnrichedObligation, Obligation } from './layouts/obligation';
-import { EnrichedReserve} from './layouts/reserve';
+import { findLargestTokenAccountForOwner, getParsedReservesMap, scaleToNormalNumber, notify, sleep, STAKING_PROGRAM_ID, WAD, Wallet, ZERO } from './utils';
+import { EnrichedObligation } from './layouts/obligation';
+import { EnrichedReserve } from './layouts/reserve';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
 import { refreshObligationInstruction } from './instructions/refreshObligation';
 import { liquidateObligationInstruction } from './instructions/liquidateObligation';
@@ -13,6 +13,8 @@ import { parsePriceData } from '@pythnetwork/client';
 import Big from 'big.js';
 import {Port} from '@port.finance/port-sdk'
 import { PortBalance } from '@port.finance/port-sdk/lib/models/PortBalance';
+import { ReserveContext } from '@port.finance/port-sdk/lib/models/ReserveContext';
+import { ReserveInfo } from '@port.finance/port-sdk/lib/models/ReserveInfo';
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const DISPLAY_FIRST = 10;
@@ -31,7 +33,6 @@ const reserveLookUpTable = {
 }
 
 async function runPartialLiquidator() {
-  // const cluster = process.env.CLUSTER || 'devnet'
   const clusterUrl = process.env.CLUSTER_URL || "https://api.mainnet-beta.solana.com"
   const checkInterval = parseFloat(process.env.CHECK_INTERVAL || "5000.0")
   const connection = new Connection(clusterUrl, 'singleGossip')
@@ -63,7 +64,7 @@ async function runPartialLiquidator() {
     try {
       redeemRemainingCollaterals(parsedReserveMap, programId, connection, payer, wallets);
 
-      const unhealthyObligations = await getUnhealthyObligations(connection, programId, parsedReserveMap);
+      const unhealthyObligations = await getUnhealthyObligations(connection, programId);
       console.log(`Time: ${new Date()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
       for (const unhealthyObligation of unhealthyObligations) {
         // notify(
@@ -100,23 +101,23 @@ function redeemRemainingCollaterals(parsedReserveMap: Map<string, EnrichedReserv
   );
 }
 
-async function readSymbolPrice(connection: Connection, reserve: EnrichedReserve): Promise<Big> {
-  if (reserve.reserve.liquidity.oracleOption === 0) {
-    return reserve.reserve.liquidity.marketPrice.div(WAD);
+async function readSymbolPrice(connection: Connection, reserve: ReserveInfo): Promise<Big> {
+  if (reserve.getOracleId() === null) {
+    return reserve.getMarkPrice().getRaw();
   }
 
-  const pythData = await connection.getAccountInfo(reserve.reserve.liquidity.oraclePubkey);
+  const pythData = await connection.getAccountInfo(reserve.getOracleId()!.key);
   const parsedData = parsePriceData(pythData?.data!);
 
   return new Big(parsedData.price);
 }
 
-async function readTokenPrices(connection, allReserve: Map<string, EnrichedReserve>): Promise<Map<string, Big>> {
+async function readTokenPrices(connection, reserveContext: ReserveContext): Promise<Map<string, Big>> {
   const tokenToCurrentPrice = new Map();
 
-  for (const [_, reserve] of allReserve.entries()) {
+  for (const reserve of reserveContext.getAllReserves()) {
     tokenToCurrentPrice.set(
-      reserve.publicKey.toBase58(),
+      reserve.getReserveId().toString(),
       await readSymbolPrice(connection, reserve)
     )
   }
@@ -137,15 +138,16 @@ function isNoBorrow(obligation: PortBalance): boolean {
   return obligation.getLoans().length === 0;
 }
 
-async function getUnhealthyObligations(connection: Connection, programId: PublicKey, allReserve: Map<string, EnrichedReserve>) {
+async function getUnhealthyObligations(connection: Connection, programId: PublicKey) {
   const mainnetPort = Port.forMainNet()
   const portBalances = await mainnetPort.getAllPortBalances()
-  const tokenToCurrentPrice = await readTokenPrices(connection, allReserve);
+  const reserves = await mainnetPort.getReserveContext()
+  const tokenToCurrentPrice = await readTokenPrices(connection, reserves);
   const sortedObligations =  portBalances
     .filter(obligation => !isNoBorrow(obligation))
     .filter(obligation => !willNeverLiquidate(obligation))
     .filter(obligation => !isInsolvent(obligation))
-    .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice, allReserve))
+    .map(obligation => generateEnrichedObligation(obligation, tokenToCurrentPrice, reserves))
     .sort(
       (obligation1, obligation2) => {
         return obligation2.riskFactor * 100 - obligation1.riskFactor * 100;
@@ -169,15 +171,15 @@ obligation pubkey: ${ob.obligation.getPortId().toString()}
   return sortedObligations.filter(obligation => obligation.riskFactor >= 1);
 }
 
-function generateEnrichedObligation(obligation: PortBalance, tokenToCurrentPrice: Map<string, Big>, allReserve: Map<string, EnrichedReserve>): EnrichedObligation {
+function generateEnrichedObligation(obligation: PortBalance, tokenToCurrentPrice: Map<string, Big>, reserveContext: ReserveContext): EnrichedObligation {
   let loanValue = ZERO;
   const borrowedAssetNames: string[] = [];
   for (const borrow of obligation.getLoans()) {
     let reservePubKey = borrow.getReserveId().toString();
-    let reserve = allReserve.get(reservePubKey)!.reserve;
     let name = reserveLookUpTable[reservePubKey];
-    let tokenPrice = tokenToCurrentPrice.get(reservePubKey)!;
-    let totalPrice = borrow.getAsset().getRaw().mul(tokenPrice).div(TEN.pow(reserve.liquidity.mintDecimals))
+    let reserve = reserveContext.getReserveByReserveId(borrow.getReserveId());
+    let tokenPrice: Big = tokenToCurrentPrice.get(reservePubKey)!;
+    let totalPrice = borrow.getAsset().getRaw().mul(tokenPrice).div(reserve.getQuantityContext().multiplier)
     loanValue = loanValue.add(totalPrice)
     borrowedAssetNames.push(name);
   }
@@ -185,17 +187,13 @@ function generateEnrichedObligation(obligation: PortBalance, tokenToCurrentPrice
   const depositedAssetNames: string[] = [];
 
   for (const deposit of obligation.getCollaterals()) {
-
     let reservePubKey = deposit.getReserveId().toString();
     let name = reserveLookUpTable[reservePubKey];
-    let reserve = allReserve.get(reservePubKey)!.reserve;
-    let totalSupply = reserve.liquidity.availableAmount.add(wadToBN(reserve.liquidity.borrowedAmountWads));
-    let collateralTotalSupply = reserve.collateral.mintTotalSupply;
-    // In percentage
-    let liquidationThreshold = reserve.config.liquidationThreshold!;
+    let reserve = reserveContext.getReserveByReserveId(deposit.getReserveId());
+    let exchangeRatio = reserve.getExchangeRatio().getPct()?.getRaw();
+    let liquidationThreshold = reserve.params.liquidationThreshold.getRaw();
     let tokenPrice = tokenToCurrentPrice.get(reservePubKey)!;
-    // divide by 100 to account for liquidation threshold
-    let totalPrice = deposit.getShare().getRaw().mul(totalSupply).mul(tokenPrice).mul(new Big(liquidationThreshold)).div(collateralTotalSupply).div(new Big(100)).div(TEN.pow(reserve.liquidity.mintDecimals))
+    let totalPrice = deposit.getShare().getRaw().div(exchangeRatio).mul(tokenPrice).mul(liquidationThreshold).div(reserve.getQuantityContext().multiplier);
     collateralValue = collateralValue.add(totalPrice)
     depositedAssetNames.push(name);
   }
