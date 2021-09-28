@@ -13,7 +13,6 @@ import { parsePriceData } from '@pythnetwork/client';
 import Big from 'big.js';
 import {Port} from '@port.finance/port-sdk'
 import { PortBalance } from '@port.finance/port-sdk/lib/models/PortBalance';
-import { Percentage } from '@port.finance/port-sdk/lib/models/Percentage';
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const DISPLAY_FIRST = 10;
@@ -160,6 +159,7 @@ async function getUnhealthyObligations(connection: Connection, programId: Public
     ob => console.log(
 `Risk factor: ${ob.riskFactor.toFixed(4)} borrowed amount: ${ob.loanValue} deposit amount: ${ob.collateralValue}
 borrowed asset names: [${ob.borrowedAssetNames.toString()}] deposited asset names: [${ob.depositedAssetNames.toString()}]
+obligation pubkey: ${ob.obligation.getPortId().toString()}
 `
     )
   )
