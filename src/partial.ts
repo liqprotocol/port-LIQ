@@ -1,9 +1,7 @@
 import { Account, Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { findLargestTokenAccountForOwner, getParsedReservesMap, scaleToNormalNumber, notify, sleep, STAKING_PROGRAM_ID, WAD, Wallet, ZERO } from './utils';
-import { EnrichedObligation } from './layouts/obligation';
-import { EnrichedReserve } from './layouts/reserve';
+import { findLargestTokenAccountForOwner, scaleToNormalNumber, notify, sleep, STAKING_PROGRAM_ID, WAD, Wallet, ZERO } from './utils';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
 import { refreshObligationInstruction } from './instructions/refreshObligation';
 import { liquidateObligationInstruction } from './instructions/liquidateObligation';
@@ -33,9 +31,20 @@ const reserveLookUpTable = {
   "7dXHPrJtwBjQqU1pLKfkHbq9TjQAK9jTms3rnj1i3G77": "SBR"
 }
 
+interface EnrichedObligation {
+  riskFactor: number;
+  // loan value in USD
+  loanValue: Big;
+  // collateral value in USD
+  collateralValue: Big;
+  obligation: PortBalance;
+  borrowedAssetNames: string[];
+  depositedAssetNames: string[];
+}
+
 async function runPartialLiquidator() {
   const clusterUrl = process.env.CLUSTER_URL || "https://api.mainnet-beta.solana.com"
-  const checkInterval = parseFloat(process.env.CHECK_INTERVAL || "5000.0")
+  const checkInterval = parseFloat(process.env.CHECK_INTERVAL || "8000.0")
   const connection = new Connection(clusterUrl, 'singleGossip')
 
   // The address of the Port Finance on the blockchain
@@ -47,24 +56,24 @@ async function runPartialLiquidator() {
 
   console.log(`Port liquidator launched on cluster=${clusterUrl}`);
 
-  const parsedReserveMap = await getParsedReservesMap(connection, programId);
+  const reserveContext = await Port.forMainNet().getReserveContext()
   const wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }> = new Map();
 
-  for (const reserve of parsedReserveMap.values()) {
+  for (const reserve of reserveContext.getAllReserves()) {
     wallets.set(
-      reserve.reserve.liquidity.mintPubkey.toBase58(),
+      reserve.getAssetId().toString(),
       await findLargestTokenAccountForOwner(
-        connection, payer, reserve.reserve.liquidity.mintPubkey));
+        connection, payer, reserve.getAssetId().key));
     wallets.set(
-      reserve.reserve.collateral.mintPubkey.toBase58(),
+      reserve.getShareId().toString(),
       await findLargestTokenAccountForOwner(
-        connection, payer, reserve.reserve.collateral.mintPubkey));
+        connection, payer, reserve.getShareId().key));
   }
 
   while (true) {
     try {
-      const reserves = await Port.forMainNet().getReserveContext()
-      redeemRemainingCollaterals(reserves, programId, connection, payer, wallets);
+      const reserveContext = await Port.forMainNet().getReserveContext()
+      redeemRemainingCollaterals(reserveContext, programId, connection, payer, wallets);
 
       const unhealthyObligations = await getUnhealthyObligations(connection);
       console.log(`Time: ${new Date()} - payer account ${payer.publicKey.toBase58()}, we have ${unhealthyObligations.length} accounts for liquidation`)
@@ -74,7 +83,7 @@ async function runPartialLiquidator() {
 which has borrowed ${unhealthyObligation.loanValue} ...
 `
         )
-        await liquidateAccount(connection, programId, payer, unhealthyObligation, reserves, wallets);
+        await liquidateAccount(connection, programId, payer, unhealthyObligation, reserveContext, wallets);
       }
 
     } catch (e) {
@@ -202,7 +211,7 @@ function generateEnrichedObligation(obligation: PortBalance, tokenToCurrentPrice
     depositedAssetNames.push(name);
   }
 
-  const riskFactor = (collateralValue === ZERO || loanValue === ZERO) ? 0 : scaleToNormalNumber((loanValue.mul(WAD).div(collateralValue)), 18);
+  const riskFactor = (collateralValue === ZERO || loanValue === ZERO) ? 0 : loanValue.div(collateralValue);
 
   return {
     loanValue,
