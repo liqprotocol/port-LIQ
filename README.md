@@ -34,3 +34,8 @@ You must put your private key file **id.json** at the root level of this folder,
 
 ### Contribution
 We welcome contributions. Substantial contribution is eligible for PORT token or USD rewards.
+
+### Support
+Need help? You can find us on the Port Finance Discord:
+
+[![Discord Chat](https://img.shields.io/discord/842990920081473586?color=blueviolet)](https://discord.gg/Yky8ZwdEN2)
