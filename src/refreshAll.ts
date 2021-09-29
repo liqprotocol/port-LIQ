@@ -1,14 +1,14 @@
 import { Account, Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { getAllObligations, notify, sleep } from './utils';
-import { Obligation } from './layouts/obligation';
+import { notify, sleep } from './utils';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
 import { refreshObligationInstruction } from './instructions/refreshObligation';
-import BN from 'bn.js';
 import { ReserveContext } from '@port.finance/port-sdk/lib/models/ReserveContext';
 import { ReserveInfo } from '@port.finance/port-sdk/lib/models/ReserveInfo';
 import { Port } from '@port.finance/port-sdk';
+import Big from 'big.js';
+import { PortBalance } from '@port.finance/port-sdk/lib/models/PortBalance';
 
 async function refreshAllObligations() {
   const cluster = process.env.CLUSTER || 'devnet';
@@ -33,9 +33,9 @@ async function refreshAllObligations() {
 
   while (true) {
     try {
-      const obligations = await getAllObligations(connection, programId);
+      const obligations = await mainnetPort.getAllPortBalances();
       const nonEmptyBorrowedObligations = obligations.filter((obligation) =>
-        obligation.borrowedValue.gt(new BN(0)),
+        obligation.getLoanMargin().getRaw().gt(new Big(0)),
       );
       console.log(
         'Total obligations that needs to be refreshed ',
@@ -75,7 +75,7 @@ async function refreshAllObligations() {
 async function refreshObligations(
   connection: Connection,
   payer: Account,
-  obligations: Obligation[],
+  obligations: PortBalance[],
   allReserve: ReserveContext,
 ) {
   const transaction = new Transaction();
@@ -86,9 +86,9 @@ async function refreshObligations(
   for (const obligation of obligations) {
     transaction.add(
       refreshObligationInstruction(
-        obligation.publicKey,
-        obligation.deposits.map((deposit) => deposit.depositReserve),
-        obligation.borrows.map((borrow) => borrow.borrowReserve),
+        obligation.getPortId().key,
+        obligation.getCollaterals().map(collateral => collateral.getReserveId().key),
+        obligation.getLoans().map(loan => loan.getReserveId().key),
       ),
     );
   }

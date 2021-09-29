@@ -7,7 +7,6 @@ import {
   Keypair,
 } from '@solana/web3.js';
 import axios from 'axios';
-import { Obligation, ObligationParser } from './layouts/obligation';
 import { blob, struct, nu64 } from 'buffer-layout';
 import { AccountLayout, Token } from '@solana/spl-token';
 import { TransactionInstruction } from '@solana/web3.js';
@@ -33,33 +32,6 @@ export function sleep(ms) {
 export const getUnixTs = () => {
   return new Date().getTime() / 1000;
 };
-
-export async function getAllObligations(
-  connection: Connection,
-  programId: PublicKey,
-): Promise<Obligation[]> {
-  const rawObligationAccounts = await connection.getProgramAccounts(programId, {
-    filters: [
-      {
-        dataSize: 916,
-      },
-    ],
-  });
-
-  const parsedObligations: Obligation[] = [];
-
-  for (const rawObligationAccount of rawObligationAccounts) {
-    const parsedObligation = ObligationParser(
-      rawObligationAccount.pubkey,
-      rawObligationAccount.account,
-    );
-    if (parsedObligation === undefined) {
-      continue;
-    }
-    parsedObligations.push(parsedObligation);
-  }
-  return parsedObligations;
-}
 
 export async function findLargestTokenAccountForOwner(
   connection: Connection,
