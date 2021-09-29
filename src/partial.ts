@@ -1,5 +1,5 @@
 import {
-  Account,
+  Keypair,
   Connection,
   PublicKey,
   SystemProgram,
@@ -69,7 +69,7 @@ async function runPartialLiquidator() {
   // liquidator's keypair
   const keyPairPath =
     process.env.KEYPAIR || `${homedir()}/.config/solana/id.json`;
-  const payer = new Account(JSON.parse(fs.readFileSync(keyPairPath, 'utf-8')));
+  const payer = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(keyPairPath, 'utf-8'))));
 
   console.log(`Port liquidator launched on cluster=${clusterUrl}`);
 
@@ -145,7 +145,7 @@ function redeemRemainingCollaterals(
   reserveContext: ReserveContext,
   programId: PublicKey,
   connection: Connection,
-  payer: Account,
+  payer: Keypair,
   wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }>,
 ) {
   const lendingMarket: PublicKey = reserveContext
@@ -323,7 +323,7 @@ function generateEnrichedObligation(
 async function liquidateAccount(
   connection: Connection,
   programId: PublicKey,
-  payer: Account,
+  payer: Keypair,
   obligation: EnrichedObligation,
   reserveContext: ReserveContext,
   wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }>,
@@ -336,7 +336,7 @@ async function liquidateAccount(
     programId,
   );
   const transaction: Transaction = new Transaction();
-  const signers: Account[] = [];
+  const signers: Keypair[] = [];
 
   const toRefreshReserves: Set<ReserveId> = new Set();
   obligation.obligation.getLoans().forEach((borrow) => {
@@ -440,7 +440,7 @@ async function liquidateAccount(
 function liquidateByPayingSOL(
   connection: Connection,
   transaction: Transaction,
-  signers: Account[],
+  signers: Keypair[],
   amount: number,
   withdrawWallet: PublicKey,
   repayReserve: ReserveInfo,
@@ -448,9 +448,9 @@ function liquidateByPayingSOL(
   obligation: PortBalance,
   lendingMarket: PublicKey,
   lendingMarketAuthority: PublicKey,
-  payer: Account,
+  payer: Keypair,
 ) {
-  const wrappedSOLTokenAccount = new Account();
+  const wrappedSOLTokenAccount = new Keypair();
   transaction.add(
     SystemProgram.createAccount({
       fromPubkey: payer.publicKey,
@@ -500,7 +500,7 @@ function liquidateByPayingSOL(
 async function liquidateByPayingToken(
   connection: Connection,
   transaction: Transaction,
-  signers: Account[],
+  signers: Keypair[],
   amount: number,
   repayWallet: PublicKey,
   withdrawWallet: PublicKey,
@@ -509,9 +509,9 @@ async function liquidateByPayingToken(
   obligation: PortBalance,
   lendingMarket: PublicKey,
   lendingMarketAuthority: PublicKey,
-  payer: Account,
-) {
-  const transferAuthority = new Account();
+  payer: Keypair,
+): Promise<Keypair> {
+  const transferAuthority = new Keypair();
   const stakeAccounts = await connection.getProgramAccounts(
     STAKING_PROGRAM_ID,
     {
@@ -579,13 +579,13 @@ async function liquidateByPayingToken(
 async function redeemCollateral(
   wallets: Map<string, { publicKey: PublicKey; tokenAccount: Wallet }>,
   withdrawReserve: ReserveInfo,
-  payer: Account,
+  payer: Keypair,
   tokenwallet: { publicKey: PublicKey; tokenAccount: Wallet },
   lendingMarketAuthority: PublicKey,
   connection: Connection,
 ) {
   const transaction = new Transaction();
-  const transferAuthority = new Account();
+  const transferAuthority = new Keypair();
   if (tokenwallet.tokenAccount.amount === 0) {
     return;
   }

@@ -4,6 +4,7 @@ import {
   Account,
   SystemProgram,
   Transaction,
+  Keypair,
 } from '@solana/web3.js';
 import axios from 'axios';
 import { Obligation, ObligationParser } from './layouts/obligation';
@@ -62,7 +63,7 @@ export async function getAllObligations(
 
 export async function findLargestTokenAccountForOwner(
   connection: Connection,
-  owner: Account,
+  owner: Keypair,
   mint: PublicKey,
 ): Promise<{ publicKey: PublicKey; tokenAccount: Wallet }> {
   const response = await connection.getTokenAccountsByOwner(
