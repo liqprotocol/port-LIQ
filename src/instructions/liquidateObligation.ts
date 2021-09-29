@@ -45,7 +45,7 @@ export const liquidateObligationInstruction = (
   lendingMarketAuthority: PublicKey,
   transferAuthority: PublicKey,
   staking_pool: PublicKey | undefined,
-  stake_account: PublicKey | undefined
+  stake_account: PublicKey | undefined,
 ): TransactionInstruction => {
   const dataLayout = BufferLayout.struct([
     BufferLayout.u8('instruction'),
@@ -79,15 +79,13 @@ export const liquidateObligationInstruction = (
     { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
   ];
-   if (staking_pool !== undefined && stake_account !== undefined) {
-      keys.concat(
-        [
-          { pubkey: stake_account, isSigner: false, isWritable: true },
-          { pubkey: staking_pool, isSigner: false, isWritable: true },
-          { pubkey: STAKING_PROGRAM_ID, isSigner: false, isWritable: false },
-        ]
-      )
-   }
+  if (staking_pool !== undefined && stake_account !== undefined) {
+    keys.concat([
+      { pubkey: stake_account, isSigner: false, isWritable: true },
+      { pubkey: staking_pool, isSigner: false, isWritable: true },
+      { pubkey: STAKING_PROGRAM_ID, isSigner: false, isWritable: false },
+    ]);
+  }
 
   return new TransactionInstruction({
     keys,

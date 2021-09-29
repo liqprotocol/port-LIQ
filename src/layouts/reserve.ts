@@ -6,8 +6,8 @@ import { LastUpdate, LastUpdateLayout } from './lastUpdate';
 import Big from 'big.js';
 
 export interface EnrichedReserve {
-  publicKey: PublicKey,
-  reserve: Reserve,
+  publicKey: PublicKey;
+  reserve: Reserve;
 }
 
 export interface Reserve {
@@ -111,7 +111,6 @@ export const ReserveLayout: typeof BufferLayout.Structure = BufferLayout.struct(
     BufferLayout.u8('deposit_staking_pool_option'),
     Layout.publicKey('deposit_staking_pool'),
     BufferLayout.blob(215, 'padding2'),
-
   ],
 );
 

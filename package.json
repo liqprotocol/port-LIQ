@@ -14,7 +14,8 @@
     "watch": "tsc --watch",
     "clean": "rm -rf dist",
     "prepare": "run-s clean build",
-    "shell": "node -e \"$(< shell)\" -i --experimental-repl-await"
+    "shell": "node -e \"$(< shell)\" -i --experimental-repl-await",
+    "format:fix": "prettier --write \"**/*.+(js|jsx|ts|tsx|json|css|md)\""
   },
   "devDependencies": {
     "@tsconfig/node14": "^1.0.0",

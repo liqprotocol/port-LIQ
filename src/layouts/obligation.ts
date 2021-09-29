@@ -5,8 +5,8 @@ import { LastUpdate } from './lastUpdate';
 import Big from 'big.js';
 import { PortBalance } from '@port.finance/port-sdk/lib/models/PortBalance';
 
-export const ObligationLayout: typeof BufferLayout.Structure = BufferLayout.struct(
-  [
+export const ObligationLayout: typeof BufferLayout.Structure =
+  BufferLayout.struct([
     BufferLayout.u8('version'),
 
     BufferLayout.struct(
@@ -24,25 +24,22 @@ export const ObligationLayout: typeof BufferLayout.Structure = BufferLayout.stru
     BufferLayout.u8('depositsLen'),
     BufferLayout.u8('borrowsLen'),
     BufferLayout.blob(776, 'dataFlat'),
-  ],
-);
+  ]);
 
-export const ObligationCollateralLayout: typeof BufferLayout.Structure = BufferLayout.struct(
-  [
+export const ObligationCollateralLayout: typeof BufferLayout.Structure =
+  BufferLayout.struct([
     Layout.publicKey('depositReserve'),
     Layout.uint64('depositedAmount'),
     Layout.uint128('marketValue'),
-  ],
-);
+  ]);
 
-export const ObligationLiquidityLayout: typeof BufferLayout.Structure = BufferLayout.struct(
-  [
+export const ObligationLiquidityLayout: typeof BufferLayout.Structure =
+  BufferLayout.struct([
     Layout.publicKey('borrowReserve'),
     Layout.uint128('cumulativeBorrowRateWads'),
     Layout.uint128('borrowedAmountWads'),
     Layout.uint128('marketValue'),
-  ],
-);
+  ]);
 
 export const isObligation = (info: AccountInfo<Buffer>) => {
   return info.data.length === ObligationLayout.span;

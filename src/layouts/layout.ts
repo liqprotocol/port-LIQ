@@ -36,13 +36,13 @@ export const uint64 = (property = 'uint64'): unknown => {
   layout.decode = (buffer: Buffer, offset: number) => {
     const data = _decode(buffer, offset);
     return new Big(
-      (new BN(
+      new BN(
         [...data]
           .reverse()
-          .map(i => `00${i.toString(16)}`.slice(-2))
+          .map((i) => `00${i.toString(16)}`.slice(-2))
           .join(''),
         16,
-      )).toString()
+      ).toString(),
     );
   };
 
@@ -70,13 +70,13 @@ export const uint128 = (property = 'uint128'): unknown => {
   layout.decode = (buffer: Buffer, offset: number) => {
     const data = _decode(buffer, offset);
     return new Big(
-      (new BN(
+      new BN(
         [...data]
           .reverse()
-          .map(i => `00${i.toString(16)}`.slice(-2))
+          .map((i) => `00${i.toString(16)}`.slice(-2))
           .join(''),
         16,
-      )).toString()
+      ).toString(),
     );
   };
 
