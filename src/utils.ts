@@ -1,18 +1,14 @@
 import { Connection, PublicKey, Account, SystemProgram, Transaction } from '@solana/web3.js';
 import axios from 'axios';
 import { Obligation, ObligationParser } from './layouts/obligation';
-import { bits, blob, struct, u8, u32, nu64 } from 'buffer-layout';
-import { EnrichedReserve, ReserveParser } from './layouts/reserve';
+import { blob, struct, nu64 } from 'buffer-layout';
 import { AccountLayout, Token } from '@solana/spl-token';
 import { TransactionInstruction } from '@solana/web3.js';
 import { ATOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from './ids';
-// import BN from 'bn.js';
 import Big from 'big.js';
 
 export const STAKING_PROGRAM_ID = new PublicKey("stkarvwmSzv2BygN5e2LeTwimTczLWHCKPKGC2zVLiq");
 export const ZERO: Big = new Big(0);
-export const TEN: Big = new Big(10);
-export const WAD: Big = TEN.pow(18);
 
 export function notify(content: string) {
   if (process.env.WEBHOOK_URL) {
@@ -57,35 +53,6 @@ export async function getAllObligations(connection: Connection, programId: Publi
     parsedObligations.push(parsedObligation);
   }
   return parsedObligations
-}
-
-export async function getParsedReservesMap(connection: Connection, programId: PublicKey) {
-  const allReserves = await connection.getProgramAccounts(
-    programId,
-    {
-      filters: [
-        {
-          dataSize: 575,
-        }
-      ]
-    }
-  )
-  
-  const parsedReserves: Map<string, EnrichedReserve> = new Map();
-  for (const reserve of allReserves) {
-    const parsedReserve = ReserveParser(
-      reserve.pubkey,
-      reserve.account
-    )
-    if (parsedReserve === undefined) {
-      continue;
-    }
-    parsedReserves.set(
-      parsedReserve.publicKey.toBase58(),
-      parsedReserve
-    )
-  }
-  return parsedReserves;
 }
 
 export async function findLargestTokenAccountForOwner(
@@ -186,21 +153,6 @@ export function createUninitializedAccount(
   signers.push(account);
 
   return account.publicKey;
-}
-
-export function wadToNumber(wad: Big, precision: number = 4): number {
-  return wad.div(WAD.div(TEN.pow(new Big(precision)))).toNumber() / Math.pow(10, precision)
-}
-
-export function wadToBN(wad: Big): Big {
-  return wad.div(WAD);
-}
-
-export function scaleToNormalNumber(lamport: Big, scaleDecimal: number, precision = 4): number {
-  if (scaleDecimal < precision) {
-    throw new Error(`Scale decimal ${scaleDecimal} is smaller than ${precision}`);
-  }
-  return lamport.div(TEN.pow(scaleDecimal - precision)).toNumber() / Math.pow(10, precision);
 }
 
 export function parseTokenAccountData(

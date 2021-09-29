@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc",
     "start": "ts-node src/index.ts",
-    "liquidator": "ts-node src/partial-pyth.ts",
+    "liquidator": "ts-node src/partial.ts",
     "refreshAll": "ts-node src/refreshAll.ts",
     "test": "ts-node src/test.ts",
     "watch": "tsc --watch",
@@ -32,6 +32,7 @@
     "typescript": "^4.0.5"
   },
   "dependencies": {
+    "@port.finance/port-sdk": "^0.1.12",
     "@project-serum/serum": "^0.13.41",
     "@pythnetwork/client": "^2.2.0",
     "@solana/spl-token": "^0.1.6",
