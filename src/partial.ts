@@ -1,7 +1,7 @@
 import { Account, Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { findLargestTokenAccountForOwner, scaleToNormalNumber, notify, sleep, STAKING_PROGRAM_ID, WAD, Wallet, ZERO } from './utils';
+import { findLargestTokenAccountForOwner, notify, sleep, STAKING_PROGRAM_ID, Wallet, ZERO } from './utils';
 import { refreshReserveInstruction } from './instructions/refreshReserve';
 import { refreshObligationInstruction } from './instructions/refreshObligation';
 import { liquidateObligationInstruction } from './instructions/liquidateObligation';
