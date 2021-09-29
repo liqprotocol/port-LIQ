@@ -1,8 +1,5 @@
 import { ReserveInfo } from '@port.finance/port-sdk/lib/models/ReserveInfo';
-import {
-  SYSVAR_CLOCK_PUBKEY,
-  TransactionInstruction,
-} from '@solana/web3.js';
+import { SYSVAR_CLOCK_PUBKEY, TransactionInstruction } from '@solana/web3.js';
 import * as BufferLayout from 'buffer-layout';
 import { LENDING_PROGRAM_ID } from '../ids';
 import { LendingInstruction } from './instructions';

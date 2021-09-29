@@ -1,14 +1,14 @@
 import { Account, Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
-import { getAllObligations, notify, sleep } from "./utils";
-import { Obligation } from "./layouts/obligation";
-import { refreshReserveInstruction } from "./instructions/refreshReserve";
-import { refreshObligationInstruction } from "./instructions/refreshObligation";
-import BN from "bn.js";
-import { ReserveContext } from "@port.finance/port-sdk/lib/models/ReserveContext";
-import { ReserveInfo } from "@port.finance/port-sdk/lib/models/ReserveInfo";
-import { Port } from "@port.finance/port-sdk";
+import { getAllObligations, notify, sleep } from './utils';
+import { Obligation } from './layouts/obligation';
+import { refreshReserveInstruction } from './instructions/refreshReserve';
+import { refreshObligationInstruction } from './instructions/refreshObligation';
+import BN from 'bn.js';
+import { ReserveContext } from '@port.finance/port-sdk/lib/models/ReserveContext';
+import { ReserveInfo } from '@port.finance/port-sdk/lib/models/ReserveInfo';
+import { Port } from '@port.finance/port-sdk';
 
 async function refreshAllObligations() {
   const cluster = process.env.CLUSTER || 'devnet';
@@ -28,8 +28,8 @@ async function refreshAllObligations() {
 
   console.log(`refresh obligation bot launched for cluster=${cluster}`);
 
-  const mainnetPort = Port.forMainNet()
-  const reserveContext = await mainnetPort.getReserveContext()
+  const mainnetPort = Port.forMainNet();
+  const reserveContext = await mainnetPort.getReserveContext();
 
   while (true) {
     try {
@@ -46,8 +46,16 @@ async function refreshAllObligations() {
       console.log('public key: ', payer.publicKey.toBase58());
       while (counter < totalObligationsCnt) {
         const batchRefreshCnt = 10;
-        let nextCounter = Math.min(counter + batchRefreshCnt, totalObligationsCnt);
-        await refreshObligations(connection, payer, nonEmptyBorrowedObligations.slice(counter, nextCounter), reserveContext);
+        let nextCounter = Math.min(
+          counter + batchRefreshCnt,
+          totalObligationsCnt,
+        );
+        await refreshObligations(
+          connection,
+          payer,
+          nonEmptyBorrowedObligations.slice(counter, nextCounter),
+          reserveContext,
+        );
         counter = nextCounter;
         if (counter % 300 === 0) {
           console.log('Completed refreshing %d obligations', counter);
@@ -64,18 +72,17 @@ async function refreshAllObligations() {
   }
 }
 
-async function refreshObligations(connection: Connection, payer: Account, obligations: Obligation[], allReserve: ReserveContext) {
+async function refreshObligations(
+  connection: Connection,
+  payer: Account,
+  obligations: Obligation[],
+  allReserve: ReserveContext,
+) {
   const transaction = new Transaction();
-  allReserve.getAllReserves().forEach(
-    (reserve: ReserveInfo) => {
-      transaction.add(
-        refreshReserveInstruction(
-          reserve,
-        )
-      );
-    }
-  );
-  
+  allReserve.getAllReserves().forEach((reserve: ReserveInfo) => {
+    transaction.add(refreshReserveInstruction(reserve));
+  });
+
   for (const obligation of obligations) {
     transaction.add(
       refreshObligationInstruction(
