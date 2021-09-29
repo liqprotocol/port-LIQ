@@ -72,7 +72,6 @@ async function runPartialLiquidator() {
 
   while (true) {
     try {
-      const reserveContext = await Port.forMainNet().getReserveContext()
       redeemRemainingCollaterals(reserveContext, programId, connection, payer, wallets);
 
       const unhealthyObligations = await getUnhealthyObligations(connection);
