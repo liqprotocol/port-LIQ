@@ -18,7 +18,7 @@ Make sure to edit the .env file to look something like this:
 export CLUSTER_URL="https://solana-api.projectserum.com"
 export KEYPAIR=~/.config/solana/id.json
 export PROGRAM_ID="Port7uDYB3wk6GJAw4KT1WpTeMtSu9bTcChBHkX2LfR"
-export CHECK_INTERVAL="1000.0"
+export CHECK_INTERVAL="5000.0"
 ```
 
 `CHECK_INTERVAL` is the amount of milliseconds to wait between querying user's loan
@@ -42,3 +42,8 @@ You must put your private key file **id.json** at the root level of this folder,
 ### Contribution
 
 We welcome contributions. Substantial contribution is eligible for PORT token or USD rewards.
+
+### Support
+Need help? You can find us on the Port Finance Discord:
+
+[![Discord Chat](https://img.shields.io/discord/842990920081473586?color=blueviolet)](https://discord.gg/Yky8ZwdEN2)

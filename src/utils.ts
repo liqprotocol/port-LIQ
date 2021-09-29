@@ -57,7 +57,7 @@ export async function getAllObligations(
     }
     parsedObligations.push(parsedObligation);
   }
-  return parsedObligations;
+  return parsedObligations
 }
 
 export async function findLargestTokenAccountForOwner(
@@ -177,11 +177,9 @@ export function createUninitializedAccount(
   return account.publicKey;
 }
 
-export function parseTokenAccountData(data: Buffer): {
-  mint: PublicKey;
-  owner: PublicKey;
-  amount: number;
-} {
+export function parseTokenAccountData(
+  data: Buffer,
+): { mint: PublicKey; owner: PublicKey; amount: number } {
   let { mint, owner, amount } = ACCOUNT_LAYOUT.decode(data);
   return {
     mint: new PublicKey(mint),
