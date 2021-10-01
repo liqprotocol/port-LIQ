@@ -19,7 +19,7 @@ export PROGRAM_ID="Port7uDYB3wk6GJAw4KT1WpTeMtSu9bTcChBHkX2LfR"
 export CHECK_INTERVAL="5000.0"
 ```
 
-`CHECK_INTERVAL` is the amount of milliseconds to wait between querying user's loan
+`CHECK_INTERVAL` is the amount of milliseconds to wait between querying users' loans
 
 ### Run with yarn
 
