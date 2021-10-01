@@ -1,7 +1,5 @@
 # 💸 Port Finance Loan Liquidator
 
-## Setup Liquidator
-
 ### Prerequisites
 
 To run the liquidator you will need:
