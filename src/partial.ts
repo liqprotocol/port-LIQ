@@ -225,6 +225,29 @@ function isNoBorrow(obligation: PortBalance): boolean {
   return obligation.getLoans().length === 0;
 }
 
+// unused: helper only
+function getTotalShareTokenCollateralized(portBalances: PortBalance[]): Map<string, Big> {
+  const amounts = new Map();
+  amounts.set("total_amount", new Big(0))
+
+  portBalances.forEach(
+    balance => {
+      amounts.set("total_amount", amounts.get("total_amount").add(balance.getDepositedValue()))
+      balance.getCollaterals().forEach(
+        collateral => {
+          const reserveId = collateral.getReserveId().toString();
+          if (amounts.has(reserveId)) {
+            amounts.set(reserveId, amounts.get(reserveId).add(collateral.getShare().getRaw()))
+          } else (
+            amounts.set(reserveId, new Big(0))
+          )
+        }
+      )
+    }
+  )
+  return amounts
+}
+
 async function getUnhealthyObligations(connection: Connection) {
   const mainnetPort = Port.forMainNet();
   const portBalances = await mainnetPort.getAllPortBalances();
@@ -242,7 +265,9 @@ async function getUnhealthyObligations(connection: Connection) {
     });
 
   console.log(
-    `Total number of loans are ${portBalances.length} and possible liquidation debts are ${sortedObligations.length}`,
+`
+Total number of loans are ${portBalances.length} and possible liquidation debts are ${sortedObligations.length}
+`,
   );
   sortedObligations.slice(0, DISPLAY_FIRST).forEach((ob) =>
     console.log(

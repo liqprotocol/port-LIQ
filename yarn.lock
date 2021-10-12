@@ -541,16 +541,17 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@port.finance/port-sdk@^0.1.12":
-  version "0.1.12"
-  resolved "https://registry.yarnpkg.com/@port.finance/port-sdk/-/port-sdk-0.1.12.tgz#14f27d2c318c38467f01c4cfc448bc6b8b8e7749"
-  integrity sha512-NcDh3YTpwsf8u8s6oxLr5QU6VRM61p0gEH7IuZqvdw6n61JH05JhT9gmIJxTK9QQAhmuXvk8bMcuRgvRVBzeYw==
+"@port.finance/port-sdk@^0.1.15":
+  version "0.1.22"
+  resolved "https://registry.yarnpkg.com/@port.finance/port-sdk/-/port-sdk-0.1.22.tgz#8f9c61a09de2b087fb07f70014c0d685411085d3"
+  integrity sha512-1v5m4yHzD7y5hQA2GI9PxniH+kt8cyCgq5Orbu55RaC+ylFWAauZiSeUAHMEpvpUennYt5c9v1Xfgypbpk0D7w==
   dependencies:
     "@solana/spl-token" "^0.1.6"
     "@solana/spl-token-registry" "^0.2.205"
     "@solana/web3.js" "^1.22.0"
     big.js "^6.1.1"
     buffer-layout "1.2.2"
+    prettier "^2.4.1"
     typescript "^4.3.5"
 
 "@project-serum/anchor@^0.11.1":
@@ -623,9 +624,9 @@
     buffer "~6.0.3"
 
 "@solana/spl-token-registry@^0.2.205":
-  version "0.2.268"
-  resolved "https://registry.yarnpkg.com/@solana/spl-token-registry/-/spl-token-registry-0.2.268.tgz#0fdd5fdd3ba2f3f1251c3c7f30d57165e26460d6"
-  integrity sha512-d8tQlKjdpjeI4k1Lo2lQFkO/htYZanfg5aKHsmsybQb3wEOWB5HJqDZFktNg7xOowIbmxRt/RzpHjbhPYCgFNA==
+  version "0.2.274"
+  resolved "https://registry.yarnpkg.com/@solana/spl-token-registry/-/spl-token-registry-0.2.274.tgz#b3a0c595a76f6114d2381976cf4d78b8baa203ff"
+  integrity sha512-PPZa57crMYA9cPIB49IjzNF/7cI3L5ZAl66eL46JCnuYLIF62YgJwwsRFFX7D17nDeIFJnQ28WkGdQD2LO8qsw==
   dependencies:
     cross-fetch "3.0.6"
 
@@ -662,9 +663,9 @@
     tweetnacl "^1.0.0"
 
 "@solana/web3.js@^1.22.0":
-  version "1.29.1"
-  resolved "https://registry.yarnpkg.com/@solana/web3.js/-/web3.js-1.29.1.tgz#b8dfcbba4a097a06aab6a1bd72be8cdff79c6230"
-  integrity sha512-cgYOec8pJaDZ0Wk8TmfA895JE0d6+05lY7/hq2RpEoKsT/d0bTPGhN2yUQmOew1meG60R1pIMoNc3yzBB5/MlQ==
+  version "1.29.2"
+  resolved "https://registry.yarnpkg.com/@solana/web3.js/-/web3.js-1.29.2.tgz#05c162f477c226ee3211f8ee8c1c6d4203e08f54"
+  integrity sha512-gtoHzimv7upsKF2DIO4/vNfIMKN+cxSImBHvsdiMyp9IPqb8sctsHVU/+80xXl0JKXVKeairDv5RvVnesJYrtw==
   dependencies:
     "@babel/runtime" "^7.12.5"
     "@solana/buffer-layout" "^3.0.0"
@@ -990,7 +991,7 @@ ansi-escapes@^4.2.1:
 
 ansi-regex@^5.0.0:
   version "5.0.1"
-  resolved "https://registry.yarnpkg.com/ansi-regex/-/ansi-regex-5.0.1.tgz#082cb2c89c9fe8659a311a53bd6a4dc5301db304"
+  resolved "https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz"
   integrity sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==
 
 ansi-styles@^3.2.1:
@@ -3999,6 +4000,11 @@ prettier@^2.0.5:
   resolved "https://registry.npmjs.org/prettier/-/prettier-2.3.1.tgz"
   integrity sha512-p+vNbgpLjif/+D+DwAZAbndtRrR0md0MwfmOVN9N+2RgyACMT+7tfaRnT+WDPkqnuVwleyuBIG2XBxKDme3hPA==
 
+prettier@^2.4.1:
+  version "2.4.1"
+  resolved "https://registry.yarnpkg.com/prettier/-/prettier-2.4.1.tgz#671e11c89c14a4cfc876ce564106c4a6726c9f5c"
+  integrity sha512-9fbDAXSBcc6Bs1mZrDYb3XKzDLm4EXXL9sC1LqKP5rZkT6KRr/rf9amVUcODVXgguK/isJz0d0hP72WeaKWsvA==
+
 pretty-format@^26.0.0, pretty-format@^26.6.2:
   version "26.6.2"
   resolved "https://registry.npmjs.org/pretty-format/-/pretty-format-26.6.2.tgz"
@@ -4639,7 +4645,7 @@ throat@^5.0.0:
 
 tmpl@1.0.x:
   version "1.0.5"
-  resolved "https://registry.yarnpkg.com/tmpl/-/tmpl-1.0.5.tgz#8683e0b902bb9c20c4f726e3c0b69f36518c07cc"
+  resolved "https://registry.npmjs.org/tmpl/-/tmpl-1.0.5.tgz"
   integrity sha512-3f0uOEAQwIqGuWW2MVzYg8fV/QNnc/IpuJNG837rLuczAaLVHslWHZQj4IGiEl5Hs3kkbhwL9Ab7Hrsmuj+Smw==
 
 to-fast-properties@^2.0.0:
