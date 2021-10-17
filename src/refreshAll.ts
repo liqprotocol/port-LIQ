@@ -87,8 +87,10 @@ async function refreshObligations(
     transaction.add(
       refreshObligationInstruction(
         obligation.getPortId().key,
-        obligation.getCollaterals().map(collateral => collateral.getReserveId().key),
-        obligation.getLoans().map(loan => loan.getReserveId().key),
+        obligation
+          .getCollaterals()
+          .map((collateral) => collateral.getReserveId().key),
+        obligation.getLoans().map((loan) => loan.getReserveId().key),
       ),
     );
   }

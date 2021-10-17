@@ -61,7 +61,7 @@ export const liquidateObligationInstruction = (
     data,
   );
 
-  const keys = [
+  let keys = [
     { pubkey: sourceLiquidity, isSigner: false, isWritable: true },
     { pubkey: destinationCollateral, isSigner: false, isWritable: true },
     { pubkey: repayReserve, isSigner: false, isWritable: true },
@@ -80,7 +80,7 @@ export const liquidateObligationInstruction = (
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
   ];
   if (staking_pool !== undefined && stake_account !== undefined) {
-    keys.concat([
+    keys = keys.concat([
       { pubkey: stake_account, isSigner: false, isWritable: true },
       { pubkey: staking_pool, isSigner: false, isWritable: true },
       { pubkey: STAKING_PROGRAM_ID, isSigner: false, isWritable: false },
