@@ -201,6 +201,8 @@ function parseOracleData(accountInfo: AccountInfo<Buffer>, reserveInfo: ReserveI
     return new Big(parsedPythData.price);
   }
 
+  // TODO: this is not actually parsing switchboard key, it's a temporary work around since I don't
+  // know how to do it properly.
   if (accountInfo.owner.toString() === 'DtmE9D2CSB4L5D6A15mraeEjrGMm6auWVzgaD8hK2tZM') {
 
     if (accountInfo.data[0] === SwitchboardAccountType.TYPE_AGGREGATOR_RESULT_PARSE_OPTIMIZED) {
