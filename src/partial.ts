@@ -488,7 +488,7 @@ async function liquidateAccount(
   );
 }
 
-function liquidateByPayingSOL(
+async function liquidateByPayingSOL(
   connection: Connection,
   transaction: Transaction,
   signers: Keypair[],
@@ -518,7 +518,7 @@ function liquidateByPayingSOL(
     ),
   );
 
-  const transferAuthority = liquidateByPayingToken(
+  const transferAuthority = await liquidateByPayingToken(
     connection,
     transaction,
     signers,
