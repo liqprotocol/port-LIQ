@@ -28,7 +28,7 @@ import { PortBalance } from '@port.finance/port-sdk/lib/models/PortBalance';
 import { ReserveContext } from '@port.finance/port-sdk/lib/models/ReserveContext';
 import { ReserveInfo } from '@port.finance/port-sdk/lib/models/ReserveInfo';
 import { ReserveId } from '@port.finance/port-sdk/lib/models/ReserveId';
-import {RoundResult, SwitchboardAccountType} from '@switchboard-xyz/switchboard-api'
+import {SwitchboardAccountType} from '@switchboard-xyz/switchboard-api'
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 const DISPLAY_FIRST = 10;
@@ -192,10 +192,10 @@ async function readSymbolPrice(
   if (!oracleData) {
     throw new Error('cannot fetch account oracle data')
   }
-  return parseOracleData(oracleData);
+  return await parseOracleData(oracleData, reserve);
 }
 
-function parseOracleData(accountInfo: AccountInfo<Buffer>) {
+function parseOracleData(accountInfo: AccountInfo<Buffer>, reserveInfo: ReserveInfo): Promise<Big> {
   if (accountInfo.owner.toString() === 'FsJ3A3u2vn5cTVofAjvy6y5kwABJAqYWpe4975bi2epH') {
     const parsedPythData = parsePriceData(accountInfo.data);
     return new Big(parsedPythData.price);
@@ -204,8 +204,7 @@ function parseOracleData(accountInfo: AccountInfo<Buffer>) {
   if (accountInfo.owner.toString() === 'DtmE9D2CSB4L5D6A15mraeEjrGMm6auWVzgaD8hK2tZM') {
 
     if (accountInfo.data[0] === SwitchboardAccountType.TYPE_AGGREGATOR_RESULT_PARSE_OPTIMIZED) {
-      const parsedSwitchBoardData = RoundResult.decodeDelimited(accountInfo.data);
-      return new Big(parsedSwitchBoardData.result);
+      return reserveInfo.getMarkPrice().getRaw();
     }
   }
 
