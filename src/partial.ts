@@ -153,7 +153,7 @@ function redeemRemainingCollaterals(
 ) {
   const lendingMarket: PublicKey = reserveContext
     .getAllReserves()[0]
-    .getReserveId().key;
+    .getMarketId().key;
   reserveContext.getAllReserves().forEach(async (reserve) => {
     const [lendingMarketAuthority] = await PublicKey.findProgramAddress(
       [lendingMarket.toBuffer()],
