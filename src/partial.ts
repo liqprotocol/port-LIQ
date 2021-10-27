@@ -101,6 +101,7 @@ async function runPartialLiquidator() {
     );
   }
 
+  // eslint-disable-next-line
   while (true) {
     try {
       redeemRemainingCollaterals(
@@ -184,15 +185,17 @@ async function readSymbolPrice(
   connection: Connection,
   reserve: ReserveInfo,
 ): Promise<Big> {
-  if (reserve.getOracleId() === null) {
-    return reserve.getMarkPrice().getRaw();
+  const oracleId = reserve.getOracleId();
+  if (oracleId) {
+    const oracleData = await connection.getAccountInfo(oracleId.key);
+    if (!oracleData) {
+      throw new Error('cannot fetch account oracle data')
+    }
+    return await parseOracleData(oracleData, reserve);
   }
 
-  const oracleData = await connection.getAccountInfo(reserve.getOracleId()!.key);
-  if (!oracleData) {
-    throw new Error('cannot fetch account oracle data')
-  }
-  return await parseOracleData(oracleData, reserve);
+  return reserve.getMarkPrice().getRaw();
+
 }
 
 function parseOracleData(accountInfo: AccountInfo<Buffer>, reserveInfo: ReserveInfo): Promise<Big> {
@@ -249,7 +252,7 @@ function isNoBorrow(obligation: PortBalance): boolean {
   return obligation.getLoans().length === 0;
 }
 
-// unused: helper only
+// eslint-disable-next-line
 function getTotalShareTokenCollateralized(
   portBalances: PortBalance[],
 ): Map<string, Big> {
@@ -323,11 +326,15 @@ function generateEnrichedObligation(
   let loanValue = new Big(0);
   const borrowedAssetNames: string[] = [];
   for (const borrow of obligation.getLoans()) {
-    let reservePubKey = borrow.getReserveId().toString();
-    let name = reserveLookUpTable[reservePubKey];
-    let reserve = reserveContext.getReserveByReserveId(borrow.getReserveId());
-    let tokenPrice: Big = tokenToCurrentPrice.get(reservePubKey)!;
-    let totalPrice = borrow
+    const reservePubKey = borrow.getReserveId().toString();
+    const name = reserveLookUpTable[reservePubKey];
+    const reserve = reserveContext.getReserveByReserveId(borrow.getReserveId());
+    const tokenPrice: Big = tokenToCurrentPrice.get(reservePubKey);
+    if (!tokenPrice) {
+      throw new Error("token price not found")
+    }
+
+    const totalPrice = borrow
       .getAsset()
       .getRaw()
       .mul(tokenPrice)
@@ -339,13 +346,16 @@ function generateEnrichedObligation(
   const depositedAssetNames: string[] = [];
 
   for (const deposit of obligation.getCollaterals()) {
-    let reservePubKey = deposit.getReserveId().toString();
-    let name = reserveLookUpTable[reservePubKey];
-    let reserve = reserveContext.getReserveByReserveId(deposit.getReserveId());
-    let exchangeRatio = reserve.getExchangeRatio().getPct()?.getRaw();
-    let liquidationThreshold = reserve.params.liquidationThreshold.getRaw();
-    let tokenPrice = tokenToCurrentPrice.get(reservePubKey)!;
-    let totalPrice = deposit
+    const reservePubKey = deposit.getReserveId().toString();
+    const name = reserveLookUpTable[reservePubKey];
+    const reserve = reserveContext.getReserveByReserveId(deposit.getReserveId());
+    const exchangeRatio = reserve.getExchangeRatio().getPct();
+    const liquidationThreshold = reserve.params.liquidationThreshold.getRaw();
+    const tokenPrice = tokenToCurrentPrice.get(reservePubKey);
+    if (!tokenPrice || !exchangeRatio) {
+      throw new Error('error in token price or exchange ratio');
+    }
+    const totalPrice = deposit
       .getShare()
       .getRaw()
       .div(exchangeRatio)
@@ -425,6 +435,9 @@ async function liquidateAccount(
   }
 
   const payerAccount = await connection.getAccountInfo(payer.publicKey);
+  if (!payerAccount) {
+    throw new Error('No lamport!')
+  }
   const repayWallet = await findLargestTokenAccountForOwner(
     connection,
     payer,
@@ -435,6 +448,11 @@ async function liquidateAccount(
     payer,
     withdrawReserve.getShareId().key,
   );
+
+  const collateralWallet = wallets.get(withdrawReserve.getShareId().toString());
+  if (!collateralWallet) {
+    throw new Error("no collateral wallet found")
+  }
 
   signers.push(payer);
 
@@ -458,8 +476,8 @@ async function liquidateAccount(
           connection,
           transaction,
           signers,
-          payerAccount!.lamports - 100_000_000,
-          wallets.get(withdrawReserve.getShareId().toString())!.publicKey,
+          payerAccount.lamports - 100_000_000,
+          collateralWallet.publicKey,
           repayReserve,
           withdrawReserve,
           obligation.obligation,
@@ -658,10 +676,18 @@ async function redeemCollateral(
     return;
   }
 
+  const collateralWallet = wallets.get(withdrawReserve.getShareId().toString());
+  const liquidityWallet = wallets.get(withdrawReserve.getAssetId().toString());
+
+  if (!collateralWallet || !liquidityWallet) {
+    throw new Error("No collateral or liquidity wallet found.")
+  }
+
+
   transaction.add(
     Token.createApproveInstruction(
       TOKEN_PROGRAM_ID,
-      wallets.get(withdrawReserve.getShareId().toString())!.publicKey,
+      collateralWallet.publicKey,
       transferAuthority.publicKey,
       payer.publicKey,
       [],
@@ -671,7 +697,7 @@ async function redeemCollateral(
     redeemReserveCollateralInstruction(
       tokenwallet.tokenAccount.amount,
       tokenwallet.publicKey,
-      wallets.get(withdrawReserve.getAssetId().toString())!.publicKey!,
+      liquidityWallet.publicKey,
       withdrawReserve.getReserveId().key,
       withdrawReserve.getShareId().key,
       withdrawReserve.getAssetBalanceId().key,
@@ -689,7 +715,8 @@ async function redeemCollateral(
   console.log(`Redeem reserve collateral: ${redeemSig}.`);
 }
 
-async function sellToken(tokenAccount: Wallet) {
+// eslint-disable-next-line
+async function _sellToken(_tokenAccount: Wallet) {
   // TODO: sell token using Serum or Raydium
 }
 

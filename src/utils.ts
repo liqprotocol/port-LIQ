@@ -155,7 +155,7 @@ export function parseTokenAccountData(data: Buffer): {
   owner: PublicKey;
   amount: number;
 } {
-  let { mint, owner, amount } = ACCOUNT_LAYOUT.decode(data);
+  const { mint, owner, amount } = ACCOUNT_LAYOUT.decode(data);
   return {
     mint: new PublicKey(mint),
     owner: new PublicKey(owner),
