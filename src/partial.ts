@@ -43,6 +43,7 @@ const reserveLookUpTable = {
   '9gDF5W94RowoDugxT8cM29cX8pKKQitTp2uYVrarBSQ7': 'mSOL',
   'GRJyCEezbZQibAEfBKCRAg5YoTPP2UcRSTC7RfzoMypy': 'pSOL',
   '7dXHPrJtwBjQqU1pLKfkHbq9TjQAK9jTms3rnj1i3G77': 'SBR',
+  'BXt3EhK5Tj81aKaVSBD27rLFd5w8A6wmGKDh47JWohEu': 'Saber USDC - USDT LP',
 };
 
 interface EnrichedObligation {
@@ -299,7 +300,7 @@ function generateEnrichedObligation(
   tokenToCurrentPrice: Map<string, Big>,
   reserveContext: ReserveContext,
 ): EnrichedObligation {
-  let loanValue = ZERO;
+  let loanValue = new Big(0);
   const borrowedAssetNames: string[] = [];
   for (const borrow of obligation.getLoans()) {
     let reservePubKey = borrow.getReserveId().toString();
@@ -314,7 +315,7 @@ function generateEnrichedObligation(
     loanValue = loanValue.add(totalPrice);
     borrowedAssetNames.push(name);
   }
-  let collateralValue = ZERO;
+  let collateralValue: Big = new Big(0);
   const depositedAssetNames: string[] = [];
 
   for (const deposit of obligation.getCollaterals()) {
@@ -335,10 +336,10 @@ function generateEnrichedObligation(
     depositedAssetNames.push(name);
   }
 
-  const riskFactor =
-    collateralValue === ZERO || loanValue === ZERO
+  const riskFactor: number =
+    collateralValue.eq(ZERO) || loanValue.eq(ZERO)
       ? 0
-      : loanValue.div(collateralValue);
+      : loanValue.div(collateralValue).toNumber();
 
   return {
     loanValue,
