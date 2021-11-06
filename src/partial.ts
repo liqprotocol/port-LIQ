@@ -3,16 +3,18 @@ import {
   Connection,
   PublicKey,
   SystemProgram,
-  Transaction,
   AccountInfo,
   TransactionInstruction,
 } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
 import {
+  createAssociatedTokenAccount,
+  defaultTokenAccount,
   fetchTokenAccount,
   getOwnedTokenAccounts,
   notify,
+  sendTransaction,
   sleep,
   STAKING_PROGRAM_ID,
   ZERO,
@@ -97,10 +99,12 @@ async function runPartialLiquidator() {
     )
   }
 
+  await createNecessaryTokenAccounts(reserveContext, wallets, provider);
+
   // eslint-disable-next-line
   while (true) {
     try {
-      redeemRemainingCollaterals(
+      await redeemRemainingCollaterals(
         provider,
         programId,
         reserveContext,
@@ -123,7 +127,7 @@ async function runPartialLiquidator() {
 which has borrowed ${unhealthyObligation.loanValue} ...
 `,
         );
-        await liquidateAccount(
+        await liquidateUnhealthyObligation(
           provider,
           programId,
           unhealthyObligation,
@@ -141,7 +145,32 @@ which has borrowed ${unhealthyObligation.loanValue} ...
   }
 }
 
-function redeemRemainingCollaterals(
+async function createNecessaryTokenAccounts(reserveContext: ReserveContext, wallets: Map<string, TokenAccount>, provider: Provider) {
+  for (const reserve of reserveContext.getAllReserves()) {
+    if (!wallets.has(reserve.getAssetId().toString())) {
+      const aTokenAddress = await createAssociatedTokenAccount(
+        provider,
+        reserve.getAssetId().key
+      );
+      wallets.set(
+        reserve.getAssetId().toString(),
+        defaultTokenAccount(
+          aTokenAddress, provider.wallet.publicKey, reserve.getAssetId().key));
+    }
+    if (!wallets.has(reserve.getShareId().toString())) {
+      const aTokenAddress = await createAssociatedTokenAccount(
+        provider,
+        reserve.getShareId().key
+      );
+      wallets.set(
+        reserve.getShareId().toString(),
+        defaultTokenAccount(
+          aTokenAddress, provider.wallet.publicKey, reserve.getShareId().key));
+    }
+  }
+}
+
+async function redeemRemainingCollaterals(
   provider: Provider,
   programId: PublicKey,
   reserveContext: ReserveContext,
@@ -377,7 +406,7 @@ function generateEnrichedObligation(
   };
 }
 
-async function liquidateAccount(
+async function liquidateUnhealthyObligation(
   provider: Provider,
   programId: PublicKey,
   obligation: EnrichedObligation,
@@ -487,32 +516,6 @@ async function liquidateAccount(
     latestCollateralWallet,
     lendingMarketAuthority,
   );
-}
-
-async function sendTransaction(
-  provider: Provider, instructions: TransactionInstruction[], signers: Keypair[]): Promise<string> {
-
-  let transaction = new Transaction({ feePayer: provider.wallet.publicKey });
-
-  instructions.forEach(instruction => {
-    transaction.add(instruction)
-  });
-  transaction.recentBlockhash = (
-    await provider.connection.getRecentBlockhash('singleGossip')
-  ).blockhash;
-
-  if (signers.length > 0) {
-    transaction.partialSign(...signers);
-  }
-
-  transaction = await provider.wallet.signTransaction(transaction);
-  const rawTransaction = transaction.serialize();
-  const options = {
-    skipPreflight: true,
-    commitment: 'singleGossip',
-  };
-
-  return await provider.connection.sendRawTransaction(rawTransaction, options);
 }
 
 async function liquidateByPayingSOL(

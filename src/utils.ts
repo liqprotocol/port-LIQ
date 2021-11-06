@@ -4,6 +4,7 @@ import {
   SystemProgram,
   Keypair,
   Transaction,
+  sendAndConfirmRawTransaction,
 } from '@solana/web3.js';
 import axios from 'axios';
 import { AccountInfo, AccountLayout, Token } from '@solana/spl-token';
@@ -176,4 +177,78 @@ export async function fetchTokenAccount(provider: Provider, address: PublicKey):
   const tokenAccount = await getTokenAccount(provider, address);
   tokenAccount.address = address;
   return tokenAccount;
+}
+
+export async function createAssociatedTokenAccount(
+  provider: Provider,
+  mint: PublicKey
+): Promise<PublicKey> {
+  const aTokenAddr = await Token.getAssociatedTokenAddress(
+    ATOKEN_PROGRAM_ID,
+    TOKEN_PROGRAM_ID,
+    mint,
+    provider.wallet.publicKey,
+  );
+  console.log(`Creating token account for ${mint.toString()}`);
+  await sendTransaction(
+    provider,
+    [
+      Token.createAssociatedTokenAccountInstruction(
+        ATOKEN_PROGRAM_ID,
+        TOKEN_PROGRAM_ID,
+        mint,
+        aTokenAddr,
+        provider.wallet.publicKey,
+        provider.wallet.publicKey,
+      )
+    ],
+    [],
+    true
+  )
+  return aTokenAddr;
+}
+
+export async function sendTransaction(
+  provider: Provider, instructions: TransactionInstruction[], signers: Keypair[], confirm?: boolean): Promise<string> {
+
+  let transaction = new Transaction({ feePayer: provider.wallet.publicKey });
+
+  instructions.forEach(instruction => {
+    transaction.add(instruction)
+  });
+  transaction.recentBlockhash = (
+    await provider.connection.getRecentBlockhash('singleGossip')
+  ).blockhash;
+
+  if (signers.length > 0) {
+    transaction.partialSign(...signers);
+  }
+
+  transaction = await provider.wallet.signTransaction(transaction);
+  const rawTransaction = transaction.serialize();
+  const options = {
+    skipPreflight: true,
+    commitment: 'singleGossip',
+  };
+
+  if (!confirm) {
+    return provider.connection.sendRawTransaction(
+      rawTransaction,
+      options,
+    );
+  } else {
+    return await sendAndConfirmRawTransaction(
+      provider.connection,
+      rawTransaction
+    );
+  }
+}
+
+export function defaultTokenAccount(address: PublicKey, owner: PublicKey, mint: PublicKey): TokenAccount {
+  return {
+    address,
+    owner,
+    mint,
+    amount: new BN(0)
+  } as TokenAccount;
 }
