@@ -52,6 +52,7 @@ const reserveLookUpTable = {
   '7dXHPrJtwBjQqU1pLKfkHbq9TjQAK9jTms3rnj1i3G77': 'SBR',
   'BXt3EhK5Tj81aKaVSBD27rLFd5w8A6wmGKDh47JWohEu': 'Saber USDC - USDT LP',
   '4HVSvzUfQ3aP5wEDkCQRqgYMhNatenVRKPdbXUv8VvBa': 'UST',
+  '9vMJfxuKxXBoEa7rM12mYLMwTacLMLDJqHozw96WQL8i': 'ETH',
 };
 
 interface EnrichedObligation {
