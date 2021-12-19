@@ -1,4 +1,4 @@
-name: Lint
+name: Liquidator CI
 
 on:
   # Trigger the workflow on push or pull request,
@@ -28,12 +28,13 @@ jobs:
       - name: Install Node.js dependencies
         uses: borales/actions-yarn@v2.3.0
         with:
-          cmd: install # will run `yarn install` command
+          cmd: install
 
-      - name: Run linters
+      - name: Run Linter
         uses: borales/actions-yarn@v2.3.0
         with:
           cmd: lint
+
       - name: Run Build
         uses: borales/actions-yarn@v2.3.0
         with:
