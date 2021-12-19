@@ -33,25 +33,7 @@ import { PortBalance } from '@port.finance/port-sdk/dist/cjs/models/PortBalance'
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 const DISPLAY_FIRST = 10;
 
-<<<<<<< HEAD
 const portProfile = Profile.forMainNet();
-=======
-const reserveLookUpTable = {
-  'X9ByyhmtQH3Wjku9N5obPy54DbVjZV7Z99TPJZ2rwcs': 'SOL',
-  'DcENuKuYd6BWGhKfGr7eARxodqG12Bz1sN5WA8NwvLRx': 'USDC',
-  '4tqY9Hv7e8YhNQXuH75WKrZ7tTckbv2GfFVxmVcScW5s': 'USDT',
-  'DSw99gXoGzvc4N7cNGU7TJ9bCWFq96NU2Cczi1TabDx2': 'PAI',
-  'ZgS3sv1tJAor2rbGMFLeJwxsEGDiHkcrR2ZaNHZUpyF': 'SRM',
-  'DSST29PMCVkxo8cf5ht9LxrPoMc8jAZt98t6nuJywz8p': 'BTC',
-  'BnhsmYVvNjXK3TGDHLj1Yr1jBGCmD1gZMkAyCwoXsHwt': 'MER',
-  '9gDF5W94RowoDugxT8cM29cX8pKKQitTp2uYVrarBSQ7': 'mSOL',
-  'GRJyCEezbZQibAEfBKCRAg5YoTPP2UcRSTC7RfzoMypy': 'pSOL',
-  '7dXHPrJtwBjQqU1pLKfkHbq9TjQAK9jTms3rnj1i3G77': 'SBR',
-  'BXt3EhK5Tj81aKaVSBD27rLFd5w8A6wmGKDh47JWohEu': 'Saber USDC - USDT LP',
-  '4HVSvzUfQ3aP5wEDkCQRqgYMhNatenVRKPdbXUv8VvBa': 'UST',
-  '9vMJfxuKxXBoEa7rM12mYLMwTacLMLDJqHozw96WQL8i': 'ETH',
-};
->>>>>>> ecaba80dcaf6a431c203034da207bb7d52fedc89
 
 interface EnrichedObligation {
   riskFactor: number;
