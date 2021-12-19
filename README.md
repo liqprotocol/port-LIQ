@@ -6,7 +6,7 @@ To run the liquidator you will need:
 
 - A Solana account with some SOL deposited to cover transaction fees
 - Token accounts for each token in the reserve
-- Roughly equal deposits for each token.
+- Roughly equal dollar value for each token.
 
 ### Setup
 
