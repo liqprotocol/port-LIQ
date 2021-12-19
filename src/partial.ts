@@ -20,14 +20,13 @@ import {
   ZERO,
 } from './utils';
 import { AccountLayout, Token, TOKEN_PROGRAM_ID, u64 } from '@solana/spl-token';
-import { redeemReserveCollateralInstruction } from './instructions/redeemReserveCollateral';
 import { parsePriceData } from '@pythnetwork/client';
 import Big from 'big.js';
 import {SwitchboardAccountType} from '@switchboard-xyz/switchboard-api';
 import { AccountInfo as TokenAccount } from '@solana/spl-token';
 import BN from 'bn.js';
 import { Provider, Wallet } from '@project-serum/anchor';
-import {liquidateObligationInstruction, Port, Profile, refreshObligationInstruction, refreshReserveInstruction, ReserveContext, ReserveId, ReserveInfo} from '@port.finance/port-sdk'
+import {liquidateObligationInstruction, Port, Profile, redeemReserveCollateralInstruction, refreshObligationInstruction, refreshReserveInstruction, ReserveContext, ReserveId, ReserveInfo} from '@port.finance/port-sdk'
 import { PortBalance } from '@port.finance/port-sdk/dist/cjs/models/PortBalance';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
