@@ -7,9 +7,8 @@ import {
   sendAndConfirmRawTransaction,
 } from '@solana/web3.js';
 import axios from 'axios';
-import { AccountInfo, AccountLayout, Token } from '@solana/spl-token';
+import { AccountInfo, AccountLayout, ASSOCIATED_TOKEN_PROGRAM_ID, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { TransactionInstruction } from '@solana/web3.js';
-import { ATOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from './ids';
 import Big from 'big.js';
 import { AccountInfo as TokenAccount } from '@solana/spl-token';
 import { getTokenAccount, parseTokenAccount } from '@project-serum/common';
@@ -71,13 +70,13 @@ export async function findLargestTokenAccountForOwner(
           TOKEN_PROGRAM_ID.toBuffer(),
           mint.toBuffer(),
         ],
-        ATOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       )
     )[0];
 
     transaction.add(
       Token.createAssociatedTokenAccountInstruction(
-        ATOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID,
         TOKEN_PROGRAM_ID,
         mint,
         aTokenAccountPubkey,
@@ -184,7 +183,7 @@ export async function createAssociatedTokenAccount(
   mint: PublicKey
 ): Promise<PublicKey> {
   const aTokenAddr = await Token.getAssociatedTokenAddress(
-    ATOKEN_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
     mint,
     provider.wallet.publicKey,
@@ -194,7 +193,7 @@ export async function createAssociatedTokenAccount(
     provider,
     [
       Token.createAssociatedTokenAccountInstruction(
-        ATOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID,
         TOKEN_PROGRAM_ID,
         mint,
         aTokenAddr,
