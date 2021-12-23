@@ -45,7 +45,7 @@ interface EnrichedObligation {
   depositedAssetNames: string[];
 }
 
-async function runPartialLiquidator() {
+async function runLiquidator() {
   const clusterUrl =
     process.env.CLUSTER_URL || 'https://api.mainnet-beta.solana.com';
   const checkInterval = parseFloat(process.env.CHECK_INTERVAL || '8000.0');
@@ -80,7 +80,7 @@ async function runPartialLiquidator() {
     )
   }
 
-  await createNecessaryTokenAccounts(reserveContext, wallets, provider);
+  await setupTokenAccounts(reserveContext, wallets, provider);
 
   // eslint-disable-next-line
   while (true) {
@@ -126,7 +126,7 @@ which has borrowed ${unhealthyObligation.loanValue} ...
   }
 }
 
-async function createNecessaryTokenAccounts(reserveContext: ReserveContext, wallets: Map<string, TokenAccount>, provider: Provider) {
+async function setupTokenAccounts(reserveContext: ReserveContext, wallets: Map<string, TokenAccount>, provider: Provider) {
   for (const reserve of reserveContext.getAllReserves()) {
     if (!wallets.has(reserve.getAssetId().toString())) {
       const aTokenAddress = await createAssociatedTokenAccount(
@@ -170,20 +170,24 @@ async function redeemRemainingCollaterals(
       throw new Error(`No collateral wallet for ${reserve.getShareId().key.toString()}`)
     }
 
-    const collateralWallet = await fetchTokenAccount(
-      provider,
-      collateralWalletPubkey.address
-    );
-
-    if (!collateralWallet.amount.isZero()) {
-      await redeemCollateral(
+    try {
+      const collateralWallet = await fetchTokenAccount(
         provider,
-        wallets,
-        reserve,
-        collateralWallet,
-        lendingMarketAuthority,
+        collateralWalletPubkey.address
       );
+      if (!collateralWallet.amount.isZero()) {
+        await redeemCollateral(
+          provider,
+          wallets,
+          reserve,
+          collateralWallet,
+          lendingMarketAuthority,
+        );
+      }
+    } catch (e) {
+      console.log(e)
     }
+
   });
 }
 
@@ -723,4 +727,4 @@ async function _sellToken(_tokenAccount: Wallet) {
   // TODO: sell token using Serum or Raydium
 }
 
-runPartialLiquidator();
+runLiquidator();
