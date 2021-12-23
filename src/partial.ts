@@ -175,7 +175,7 @@ async function redeemRemainingCollaterals(
       collateralWalletPubkey.address
     );
 
-    if (collateralWallet.amount.gt(new BN(0))) {
+    if (!collateralWallet.amount.isZero()) {
       await redeemCollateral(
         provider,
         wallets,
