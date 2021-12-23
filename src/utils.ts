@@ -1,7 +1,6 @@
 import {
   Connection,
   PublicKey,
-  SystemProgram,
   Keypair,
   Transaction,
   sendAndConfirmRawTransaction,

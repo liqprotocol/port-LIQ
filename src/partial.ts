@@ -26,7 +26,7 @@ import {SwitchboardAccountType} from '@switchboard-xyz/switchboard-api';
 import { AccountInfo as TokenAccount } from '@solana/spl-token';
 import BN from 'bn.js';
 import { Provider, Wallet } from '@project-serum/anchor';
-import {liquidateObligationInstruction, Port, Profile, redeemReserveCollateralInstruction, refreshObligationInstruction, refreshReserveInstruction, ReserveContext, ReserveId, ReserveInfo, StakingPoolLayout} from '@port.finance/port-sdk'
+import {liquidateObligationInstruction, Port, Profile, redeemReserveCollateralInstruction, refreshObligationInstruction, refreshReserveInstruction, ReserveContext, ReserveId, ReserveInfo} from '@port.finance/port-sdk'
 import { PortBalance } from '@port.finance/port-sdk/dist/cjs/models/PortBalance';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -336,7 +336,7 @@ function generateEnrichedObligation(
     const reservePubKey = borrow.getReserveId().toString();
     const name = assetCtx.findConfigByReserveId(ReserveId.fromBase58(reservePubKey))?.getDisplayConfig().getSymbol();
     const reserve = reserveContext.getReserveByReserveId(borrow.getReserveId());
-    const tokenPrice: Big = tokenToCurrentPrice.get(reservePubKey)!;
+    const tokenPrice: Big | undefined = tokenToCurrentPrice.get(reservePubKey);
     if (!tokenPrice) {
       throw new Error("token price not found")
     }
