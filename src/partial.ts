@@ -118,7 +118,7 @@ which has borrowed ${unhealthyObligation.loanValue} ...
       }
     } catch (e) {
       notify(`unknown error: ${e}`);
-      console.error(e);
+      console.error('error: ', e);
     } finally {
       await sleep(checkInterval);
     }
@@ -197,22 +197,24 @@ async function readSymbolPrice(
     if (!oracleData) {
       throw new Error('cannot fetch account oracle data')
     }
-    return await parseOracleData(oracleData, reserve);
+    return parseOracleData(oracleData, reserve);
   }
 
   return reserve.getMarkPrice().getRaw();
 
 }
 
+const PYTH_PROGRAM = 'FsJ3A3u2vn5cTVofAjvy6y5kwABJAqYWpe4975bi2epH';
+const SWITCH_BOARD_PROGRAM = 'DtmE9D2CSB4L5D6A15mraeEjrGMm6auWVzgaD8hK2tZM';
 function parseOracleData(accountInfo: AccountInfo<Buffer>, reserveInfo: ReserveInfo): Big {
-  if (accountInfo.owner.toString() === 'FsJ3A3u2vn5cTVofAjvy6y5kwABJAqYWpe4975bi2epH') {
+  if (accountInfo.owner.toString() === PYTH_PROGRAM) {
     const parsedPythData = parsePriceData(accountInfo.data);
     return new Big(parsedPythData.price);
   }
 
   // TODO: this is not actually parsing switchboard key, it's a temporary work around since I don't
   // know how to do it properly.
-  if (accountInfo.owner.toString() === 'DtmE9D2CSB4L5D6A15mraeEjrGMm6auWVzgaD8hK2tZM') {
+  if (accountInfo.owner.toString() === SWITCH_BOARD_PROGRAM) {
 
     if (accountInfo.data[0] === SwitchboardAccountType.TYPE_AGGREGATOR_RESULT_PARSE_OPTIMIZED) {
       return reserveInfo.getMarkPrice().getRaw();
@@ -419,11 +421,24 @@ async function liquidateUnhealthyObligation(
     );
   });
 
-  const laons = obligation.obligation.getLoans();
+  const loans = obligation.obligation.getLoans();
   const collaterals = obligation.obligation.getCollaterals();
-  // TODO: choose a more sensible value
+  let repayReserveId: ReserveId | null = null;
+
+  for (const loan of loans) {
+    const tokenWallet = wallets.get(loan.getAssetId().key.toString());
+    if (!tokenWallet?.amount.isZero()) {
+      repayReserveId = loan.getReserveId();
+    }
+  }
+
+  if (repayReserveId === null) {
+    throw new Error('no liquidity to repay')
+  }
+
+  // TODO: choose a smarter way to withdraw collateral
   const repayReserve: ReserveInfo = reserveContext.getReserveByReserveId(
-    laons[0].getReserveId(),
+    repayReserveId,
   );
   const withdrawReserve: ReserveInfo = reserveContext.getReserveByReserveId(
     collaterals[0].getReserveId(),
