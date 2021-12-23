@@ -421,11 +421,24 @@ async function liquidateUnhealthyObligation(
     );
   });
 
-  const laons = obligation.obligation.getLoans();
+  const loans = obligation.obligation.getLoans();
   const collaterals = obligation.obligation.getCollaterals();
-  // TODO: choose a more sensible value
+  let repayReserveId: ReserveId | null = null;
+
+  for (const loan of loans) {
+    const tokenWallet = wallets.get(loan.getAssetId().key.toString());
+    if (!tokenWallet?.amount.isZero()) {
+      repayReserveId = loan.getReserveId();
+    }
+  }
+
+  if (repayReserveId === null) {
+    throw new Error('no liquidity to repay')
+  }
+
+  // TODO: choose a smarter way to withdraw collateral
   const repayReserve: ReserveInfo = reserveContext.getReserveByReserveId(
-    laons[0].getReserveId(),
+    repayReserveId,
   );
   const withdrawReserve: ReserveInfo = reserveContext.getReserveByReserveId(
     collaterals[0].getReserveId(),
