@@ -93,55 +93,6 @@ export async function findLargestTokenAccountForOwner(
   }
 }
 
-export function createTokenAccount(
-  instructions: TransactionInstruction[],
-  payer: PublicKey,
-  accountRentExempt: number,
-  mint: PublicKey,
-  owner: PublicKey,
-  signers: Keypair[],
-) {
-  const account = createUninitializedAccount(
-    instructions,
-    payer,
-    accountRentExempt,
-    signers,
-  );
-
-  instructions.push(
-    Token.createInitAccountInstruction(
-      new PublicKey(TOKEN_PROGRAM_ID),
-      mint,
-      account,
-      owner,
-    ),
-  );
-
-  return account;
-}
-
-export function createUninitializedAccount(
-  instructions: TransactionInstruction[],
-  payer: PublicKey,
-  amount: number,
-  signers: Keypair[],
-) {
-  const account = Keypair.generate();
-  instructions.push(
-    SystemProgram.createAccount({
-      fromPubkey: payer,
-      newAccountPubkey: account.publicKey,
-      lamports: amount,
-      space: AccountLayout.span,
-      programId: new PublicKey(TOKEN_PROGRAM_ID),
-    }),
-  );
-
-  signers.push(account);
-
-  return account.publicKey;
-}
-
 export async function getOwnedTokenAccounts(
   connection: Connection,
   publicKey: PublicKey,
