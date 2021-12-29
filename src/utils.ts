@@ -93,17 +93,16 @@ export async function findLargestTokenAccountForOwner(
 }
 
 export async function getOwnedTokenAccounts(
-  connection: Connection,
-  publicKey: PublicKey,
+  provider: Provider
 ): Promise<TokenAccount[]> {
-  const accounts = await connection.getProgramAccounts(
+  const accounts = await provider.connection.getProgramAccounts(
     TOKEN_PROGRAM_ID,
     {
       filters: [
         {
           memcmp: {
             offset: AccountLayout.offsetOf('owner'),
-            bytes: publicKey.toBase58(),
+            bytes: provider.wallet.publicKey.toBase58(),
           }
         }, 
         {
