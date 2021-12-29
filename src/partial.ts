@@ -395,6 +395,11 @@ async function liquidateUnhealthyObligation(
   reserveContext: ReserveContext,
   wallets: Map<string, TokenAccount>,
 ) {
+  const payerAccount = await provider.connection.getAccountInfo(provider.wallet.publicKey);
+  if (!payerAccount) {
+    throw new Error(`No lamport for ${provider.wallet.publicKey}`);
+  }
+
   const lendingMarket: PublicKey = reserveContext
     .getAllReserves()[0]
     .getMarketId().key;
@@ -424,9 +429,15 @@ async function liquidateUnhealthyObligation(
   let repayReserveId: ReserveId | null = null;
 
   for (const loan of loans) {
+    if (loan.getAssetId().key.toString() === SOL_MINT && payerAccount.lamports > 0) {
+      repayReserveId = loan.getReserveId();
+      break;
+    }
+
     const tokenWallet = wallets.get(loan.getAssetId().key.toString());
     if (!tokenWallet?.amount.isZero()) {
       repayReserveId = loan.getReserveId();
+      break;
     }
   }
 
@@ -434,10 +445,10 @@ async function liquidateUnhealthyObligation(
     throw new Error('no liquidity to repay')
   }
 
-  // TODO: choose a smarter way to withdraw collateral
   const repayReserve: ReserveInfo = reserveContext.getReserveByReserveId(
     repayReserveId,
   );
+  // TODO: choose a smarter way to withdraw collateral
   const withdrawReserve: ReserveInfo = reserveContext.getReserveByReserveId(
     collaterals[0].getReserveId(),
   );
@@ -452,11 +463,6 @@ async function liquidateUnhealthyObligation(
       !wallets.has(withdrawReserve.getShareId().toString()))
   ) {
     return;
-  }
-
-  const payerAccount = await provider.connection.getAccountInfo(provider.wallet.publicKey);
-  if (!payerAccount) {
-    throw new Error(`No lamport for ${provider.wallet.publicKey}`);
   }
 
   const repayWallet = wallets.get(repayReserve.getAssetId().toString());
