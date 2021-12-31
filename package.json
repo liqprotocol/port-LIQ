@@ -12,8 +12,8 @@
     "clean": "rm -rf dist",
     "prepare": "run-s clean build",
     "shell": "node -e \"$(< shell)\" -i --experimental-repl-await",
-    "format:fix": "prettier --write \"**/*.+(js|jsx|ts|tsx|json|css|md)\"",
-    "lint": "yarn run eslint src/**.ts"
+    "lint": "eslint src/**.ts --fix && prettier --write 'src/**/*.ts'",
+    "lint:ci": "eslint src/**.ts --max-warnings=0 && prettier -c '{tests,src}/**/*.ts'"
   },
   "devDependencies": {
     "@tsconfig/node14": "^1.0.0",

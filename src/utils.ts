@@ -6,13 +6,18 @@ import {
   sendAndConfirmRawTransaction,
 } from '@solana/web3.js';
 import axios from 'axios';
-import { AccountInfo, AccountLayout, ASSOCIATED_TOKEN_PROGRAM_ID, Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import {
+  AccountInfo,
+  AccountLayout,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  Token,
+  TOKEN_PROGRAM_ID,
+} from '@solana/spl-token';
 import { TransactionInstruction } from '@solana/web3.js';
 import Big from 'big.js';
 import { AccountInfo as TokenAccount } from '@solana/spl-token';
 import { getTokenAccount, parseTokenAccount } from '@project-serum/common';
 import { BN, Provider } from '@project-serum/anchor';
-
 
 export const STAKING_PROGRAM_ID = new PublicKey(
   'stkarvwmSzv2BygN5e2LeTwimTczLWHCKPKGC2zVLiq',
@@ -50,7 +55,7 @@ export async function findLargestTokenAccountForOwner(
 
   for (const { pubkey, account } of response.value) {
     const tokenAccount = parseTokenAccount(account.data);
-    if (tokenAccount.amount.gt(max) ) {
+    if (tokenAccount.amount.gt(max)) {
       maxTokenAccount = tokenAccount;
       max = tokenAccount.amount;
       maxPubkey = pubkey;
@@ -87,13 +92,13 @@ export async function findLargestTokenAccountForOwner(
     return {
       address: aTokenAccountPubkey,
       owner: owner.publicKey,
-      mint
+      mint,
     } as TokenAccount;
   }
 }
 
 export async function getOwnedTokenAccounts(
-  provider: Provider
+  provider: Provider,
 ): Promise<TokenAccount[]> {
   const accounts = await provider.connection.getProgramAccounts(
     TOKEN_PROGRAM_ID,
@@ -103,25 +108,25 @@ export async function getOwnedTokenAccounts(
           memcmp: {
             offset: AccountLayout.offsetOf('owner'),
             bytes: provider.wallet.publicKey.toBase58(),
-          }
-        }, 
+          },
+        },
         {
           dataSize: AccountLayout.span,
-        }
-      ]
-    }
+        },
+      ],
+    },
   );
-  return (
-    accounts
-      .map(r => {
-        const tokenAccount = parseTokenAccount(r.account.data);
-        tokenAccount.address = r.pubkey;
-        return tokenAccount;
-      })
-  );
+  return accounts.map((r) => {
+    const tokenAccount = parseTokenAccount(r.account.data);
+    tokenAccount.address = r.pubkey;
+    return tokenAccount;
+  });
 }
 
-export async function fetchTokenAccount(provider: Provider, address: PublicKey): Promise<AccountInfo> {
+export async function fetchTokenAccount(
+  provider: Provider,
+  address: PublicKey,
+): Promise<AccountInfo> {
   const tokenAccount = await getTokenAccount(provider, address);
   tokenAccount.address = address;
   return tokenAccount;
@@ -129,7 +134,7 @@ export async function fetchTokenAccount(provider: Provider, address: PublicKey):
 
 export async function createAssociatedTokenAccount(
   provider: Provider,
-  mint: PublicKey
+  mint: PublicKey,
 ): Promise<PublicKey> {
   const aTokenAddr = await Token.getAssociatedTokenAddress(
     ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -148,21 +153,24 @@ export async function createAssociatedTokenAccount(
         aTokenAddr,
         provider.wallet.publicKey,
         provider.wallet.publicKey,
-      )
+      ),
     ],
     [],
-    true
-  )
+    true,
+  );
   return aTokenAddr;
 }
 
 export async function sendTransaction(
-  provider: Provider, instructions: TransactionInstruction[], signers: Keypair[], confirm?: boolean): Promise<string> {
-
+  provider: Provider,
+  instructions: TransactionInstruction[],
+  signers: Keypair[],
+  confirm?: boolean,
+): Promise<string> {
   let transaction = new Transaction({ feePayer: provider.wallet.publicKey });
 
-  instructions.forEach(instruction => {
-    transaction.add(instruction)
+  instructions.forEach((instruction) => {
+    transaction.add(instruction);
   });
   transaction.recentBlockhash = (
     await provider.connection.getRecentBlockhash('singleGossip')
@@ -180,23 +188,24 @@ export async function sendTransaction(
   };
 
   if (!confirm) {
-    return provider.connection.sendRawTransaction(
-      rawTransaction,
-      options,
-    );
+    return provider.connection.sendRawTransaction(rawTransaction, options);
   } else {
     return await sendAndConfirmRawTransaction(
       provider.connection,
-      rawTransaction
+      rawTransaction,
     );
   }
 }
 
-export function defaultTokenAccount(address: PublicKey, owner: PublicKey, mint: PublicKey): TokenAccount {
+export function defaultTokenAccount(
+  address: PublicKey,
+  owner: PublicKey,
+  mint: PublicKey,
+): TokenAccount {
   return {
     address,
     owner,
     mint,
-    amount: new BN(0)
+    amount: new BN(0),
   } as TokenAccount;
 }
