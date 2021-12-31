@@ -22,16 +22,26 @@ import {
 import { AccountLayout, Token, TOKEN_PROGRAM_ID, u64 } from '@solana/spl-token';
 import { parsePriceData } from '@pythnetwork/client';
 import Big from 'big.js';
-import {SwitchboardAccountType} from '@switchboard-xyz/switchboard-api';
+import { SwitchboardAccountType } from '@switchboard-xyz/switchboard-api';
 import { AccountInfo as TokenAccount } from '@solana/spl-token';
 import { Provider, Wallet } from '@project-serum/anchor';
-import {liquidateObligationInstruction, Port, Profile, redeemReserveCollateralInstruction, refreshObligationInstruction, refreshReserveInstruction, ReserveContext, ReserveId, ReserveInfo} from '@port.finance/port-sdk'
-import { PortBalance } from '@port.finance/port-sdk/dist/cjs/models/PortBalance';
+import {
+  liquidateObligationInstruction,
+  Port,
+  Environment,
+  PortProfile,
+  redeemReserveCollateralInstruction,
+  refreshObligationInstruction,
+  refreshReserveInstruction,
+  ReserveContext,
+  ReserveId,
+  ReserveInfo,
+} from '@port.finance/port-sdk';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 const DISPLAY_FIRST = 10;
 
-const portProfile = Profile.forMainNet();
+const portEnvironment = Environment.forMainNet();
 
 interface EnrichedObligation {
   riskFactor: number;
@@ -39,7 +49,7 @@ interface EnrichedObligation {
   loanValue: Big;
   // collateral value in USD
   collateralValue: Big;
-  obligation: PortBalance;
+  obligation: PortProfile;
   borrowedAssetNames: string[];
   depositedAssetNames: string[];
 }
@@ -62,9 +72,9 @@ async function runLiquidator() {
     Uint8Array.from(JSON.parse(fs.readFileSync(keyPairPath, 'utf-8'))),
   );
   const provider = new Provider(connection, new Wallet(payer), {
-    preflightCommitment: "recent",
-    commitment: "recent",
-  })
+    preflightCommitment: 'recent',
+    commitment: 'recent',
+  });
 
   console.log(`Port liquidator launched on cluster=${clusterUrl}`);
 
@@ -84,10 +94,10 @@ async function runLiquidator() {
       for (const unhealthyObligation of unhealthyObligations) {
         notify(
           `Liquidating obligation account ${unhealthyObligation.obligation
-            .getPortId()
-            .toString()} which is owned by ${unhealthyObligation.obligation.owner.toBase58()} with risk factor: ${
-            unhealthyObligation.riskFactor
-          }
+            .getProfileId()
+            .toString()} which is owned by ${unhealthyObligation.obligation
+            .getOwner()
+            ?.toBase58()} with risk factor: ${unhealthyObligation.riskFactor}
 which has borrowed ${unhealthyObligation.loanValue} ...
 `,
         );
@@ -103,7 +113,7 @@ which has borrowed ${unhealthyObligation.loanValue} ...
           provider,
           programId,
           reserveContext,
-          wallets
+          wallets,
         );
       }
     } catch (e) {
@@ -116,29 +126,31 @@ which has borrowed ${unhealthyObligation.loanValue} ...
   }
 }
 
-async function prepareTokenAccounts(provider: Provider, reserveContext: ReserveContext): Promise<Map<string, TokenAccount>> {
+async function prepareTokenAccounts(
+  provider: Provider,
+  reserveContext: ReserveContext,
+): Promise<Map<string, TokenAccount>> {
   const wallets: Map<string, TokenAccount> = new Map<string, TokenAccount>();
 
   const tokenAccounts = await getOwnedTokenAccounts(provider);
   for (const tokenAccount of tokenAccounts) {
-    wallets.set(
-      tokenAccount.mint.toString(),
-      tokenAccount
-    )
+    wallets.set(tokenAccount.mint.toString(), tokenAccount);
   }
 
-  const mintIds: PublicKey[] = reserveContext.getAllReserves().flatMap((reserve) => [reserve.getAssetId().key, reserve.getShareId().key]);
+  const mintIds: PublicKey[] = reserveContext
+    .getAllReserves()
+    .flatMap((reserve) => [reserve.getAssetMintId(), reserve.getShareMintId()]);
 
   for (const mintId of mintIds) {
     if (!wallets.has(mintId.toString())) {
       const aTokenAddress = await createAssociatedTokenAccount(
         provider,
-        mintId
+        mintId,
       );
       wallets.set(
         mintId.toString(),
-        defaultTokenAccount(
-          aTokenAddress, provider.wallet.publicKey, mintId));
+        defaultTokenAccount(aTokenAddress, provider.wallet.publicKey, mintId),
+      );
     }
   }
 
@@ -153,23 +165,27 @@ async function redeemRemainingCollaterals(
 ) {
   const lendingMarket: PublicKey = reserveContext
     .getAllReserves()[0]
-    .getMarketId().key;
+    .getMarketId();
   reserveContext.getAllReserves().forEach(async (reserve) => {
     const [lendingMarketAuthority] = await PublicKey.findProgramAddress(
       [lendingMarket.toBuffer()],
       programId,
     );
-    const collateralWalletPubkey = wallets.get(reserve.getShareId().key.toString());
+    const collateralWalletPubkey = wallets.get(
+      reserve.getShareMintId().toString(),
+    );
     if (!collateralWalletPubkey) {
-      throw new Error(`No collateral wallet for ${reserve.getShareId().key.toString()}`)
+      throw new Error(
+        `No collateral wallet for ${reserve.getShareMintId().toString()}`,
+      );
     }
 
     try {
       const collateralWallet = await fetchTokenAccount(
         provider,
-        collateralWalletPubkey.address
+        collateralWalletPubkey.address,
       );
-      wallets.set(reserve.getShareId().key.toString(), collateralWallet);
+      wallets.set(reserve.getShareMintId().toString(), collateralWallet);
       if (!collateralWallet.amount.isZero()) {
         await redeemCollateral(
           provider,
@@ -179,9 +195,8 @@ async function redeemRemainingCollaterals(
         );
       }
     } catch (e) {
-      console.log(e)
+      console.log(e);
     }
-
   });
 }
 
@@ -191,20 +206,22 @@ async function readSymbolPrice(
 ): Promise<Big> {
   const oracleId = reserve.getOracleId();
   if (oracleId) {
-    const oracleData = await connection.getAccountInfo(oracleId.key);
+    const oracleData = await connection.getAccountInfo(oracleId);
     if (!oracleData) {
-      throw new Error('cannot fetch account oracle data')
+      throw new Error('cannot fetch account oracle data');
     }
     return parseOracleData(oracleData, reserve);
   }
 
   return reserve.getMarkPrice().getRaw();
-
 }
 
 const PYTH_PROGRAM = 'FsJ3A3u2vn5cTVofAjvy6y5kwABJAqYWpe4975bi2epH';
 const SWITCH_BOARD_PROGRAM = 'DtmE9D2CSB4L5D6A15mraeEjrGMm6auWVzgaD8hK2tZM';
-function parseOracleData(accountInfo: AccountInfo<Buffer>, reserveInfo: ReserveInfo): Big {
+function parseOracleData(
+  accountInfo: AccountInfo<Buffer>,
+  reserveInfo: ReserveInfo,
+): Big {
   if (accountInfo.owner.toString() === PYTH_PROGRAM) {
     const parsedPythData = parsePriceData(accountInfo.data);
     return new Big(parsedPythData.price);
@@ -213,13 +230,15 @@ function parseOracleData(accountInfo: AccountInfo<Buffer>, reserveInfo: ReserveI
   // TODO: this is not actually parsing switchboard key, it's a temporary work around since I don't
   // know how to do it properly.
   if (accountInfo.owner.toString() === SWITCH_BOARD_PROGRAM) {
-
-    if (accountInfo.data[0] === SwitchboardAccountType.TYPE_AGGREGATOR_RESULT_PARSE_OPTIMIZED) {
+    if (
+      accountInfo.data[0] ===
+      SwitchboardAccountType.TYPE_AGGREGATOR_RESULT_PARSE_OPTIMIZED
+    ) {
       return reserveInfo.getMarkPrice().getRaw();
     }
   }
 
-  throw Error('Unrecognized oracle account')
+  throw Error('Unrecognized oracle account');
 }
 
 async function readTokenPrices(
@@ -237,7 +256,7 @@ async function readTokenPrices(
   return tokenToCurrentPrice;
 }
 
-function willNeverLiquidate(obligation: PortBalance): boolean {
+function willNeverLiquidate(obligation: PortProfile): boolean {
   const loans = obligation.getLoans();
   const collaterals = obligation.getCollaterals();
   return (
@@ -248,19 +267,19 @@ function willNeverLiquidate(obligation: PortBalance): boolean {
   );
 }
 
-function isInsolvent(obligation: PortBalance): boolean {
+function isInsolvent(obligation: PortProfile): boolean {
   return (
     obligation.getLoans().length > 0 && obligation.getCollaterals().length === 0
   );
 }
 
-function isNoBorrow(obligation: PortBalance): boolean {
+function isNoBorrow(obligation: PortProfile): boolean {
   return obligation.getLoans().length === 0;
 }
 
 // eslint-disable-next-line
 function getTotalShareTokenCollateralized(
-  portBalances: PortBalance[],
+  portBalances: PortProfile[],
 ): Map<string, Big> {
   const amounts = new Map();
   amounts.set('total_amount', new Big(0));
@@ -275,9 +294,11 @@ function getTotalShareTokenCollateralized(
       if (amounts.has(reserveId)) {
         amounts.set(
           reserveId,
-          amounts.get(reserveId).add(collateral.getShare().getRaw()),
+          amounts.get(reserveId).add(collateral.getAmount().getRaw()), //TODO: Test
         );
-      } else amounts.set(reserveId, new Big(0));
+      } else {
+        amounts.set(reserveId, new Big(0));
+      }
     });
   });
   return amounts;
@@ -285,7 +306,7 @@ function getTotalShareTokenCollateralized(
 
 async function getUnhealthyObligations(connection: Connection) {
   const mainnetPort = Port.forMainNet({});
-  const portBalances = await mainnetPort.getAllPortBalances();
+  const portBalances = await mainnetPort.getAllPortProfiles();
   const reserves = await mainnetPort.getReserveContext();
   const tokenToCurrentPrice = await readTokenPrices(connection, reserves);
   const sortedObligations = portBalances
@@ -310,14 +331,18 @@ Total number of loans are ${portBalances.length} and possible liquidation debts 
         ob.loanValue
       } deposit amount: ${ob.collateralValue}
 borrowed asset names: [${ob.borrowedAssetNames.toString()}] deposited asset names: [${ob.depositedAssetNames.toString()}]
-obligation pubkey: ${ob.obligation.getPortId().toString()}
+obligation pubkey: ${ob.obligation.getProfileId().toString()}
 `,
     ),
   );
 
   tokenToCurrentPrice.forEach((price: Big, token: string) => {
     console.log(
-      `name: ${portProfile.getAssetContext().findConfigByReserveId(ReserveId.fromBase58(token))?.getDisplayConfig().getName()} price: ${price.toString()}`,
+      `name: ${portEnvironment
+        .getAssetContext()
+        .findConfigByReserveId(ReserveId.fromBase58(token))
+        ?.getDisplayConfig()
+        .getName()} price: ${price.toString()}`,
     );
   });
   console.log('\n');
@@ -325,37 +350,42 @@ obligation pubkey: ${ob.obligation.getPortId().toString()}
 }
 
 function generateEnrichedObligation(
-  obligation: PortBalance,
+  obligation: PortProfile,
   tokenToCurrentPrice: Map<string, Big>,
   reserveContext: ReserveContext,
 ): EnrichedObligation {
   let loanValue = new Big(0);
   const borrowedAssetNames: string[] = [];
-  const assetCtx = portProfile.getAssetContext()
+  const assetCtx = portEnvironment.getAssetContext();
   for (const borrow of obligation.getLoans()) {
     const reservePubKey = borrow.getReserveId().toString();
-    const name = assetCtx.findConfigByReserveId(ReserveId.fromBase58(reservePubKey))?.getDisplayConfig().getSymbol();
-    const reserve = reserveContext.getReserveByReserveId(borrow.getReserveId());
+    const name = assetCtx
+      .findConfigByReserveId(ReserveId.fromBase58(reservePubKey))
+      ?.getDisplayConfig()
+      .getSymbol();
+    const reserve = reserveContext.getReserve(borrow.getReserveId());
     const tokenPrice: Big | undefined = tokenToCurrentPrice.get(reservePubKey);
     if (!tokenPrice) {
-      throw new Error("token price not found")
+      throw new Error('token price not found');
     }
 
     const totalPrice = borrow
-      .getAsset()
       .getRaw()
       .mul(tokenPrice)
-      .div(reserve.getQuantityContext().multiplier);
+      .div(reserve.getQuantityContext().multiplier); //TODO: test
     loanValue = loanValue.add(totalPrice);
-    borrowedAssetNames.push(name??'unknow');
+    borrowedAssetNames.push(name ?? 'unknow');
   }
   let collateralValue: Big = new Big(0);
   const depositedAssetNames: string[] = [];
 
   for (const deposit of obligation.getCollaterals()) {
     const reservePubKey = deposit.getReserveId().toString();
-    const name = assetCtx.findConfigByReserveId(ReserveId.fromBase58(reservePubKey))?.getDisplayConfig().getSymbol();
-    const reserve = reserveContext.getReserveByReserveId(deposit.getReserveId());
+    const name = assetCtx
+      .findConfigByReserveId(ReserveId.fromBase58(reservePubKey))
+      ?.getDisplayConfig()
+      .getSymbol();
+    const reserve = reserveContext.getReserve(deposit.getReserveId());
     const exchangeRatio = reserve.getExchangeRatio().getPct();
     const liquidationThreshold = reserve.params.liquidationThreshold.getRaw();
     const tokenPrice = tokenToCurrentPrice.get(reservePubKey);
@@ -363,12 +393,11 @@ function generateEnrichedObligation(
       throw new Error('error in token price or exchange ratio');
     }
     const totalPrice = deposit
-      .getShare()
       .getRaw()
       .div(exchangeRatio.getRaw())
       .mul(tokenPrice)
       .mul(liquidationThreshold)
-      .div(reserve.getQuantityContext().multiplier);
+      .div(reserve.getQuantityContext().multiplier); // TODO: test
     collateralValue = collateralValue.add(totalPrice);
     depositedAssetNames.push(name ?? 'unknown');
   }
@@ -395,14 +424,16 @@ async function liquidateUnhealthyObligation(
   reserveContext: ReserveContext,
   wallets: Map<string, TokenAccount>,
 ) {
-  const payerAccount = await provider.connection.getAccountInfo(provider.wallet.publicKey);
+  const payerAccount = await provider.connection.getAccountInfo(
+    provider.wallet.publicKey,
+  );
   if (!payerAccount) {
     throw new Error(`No lamport for ${provider.wallet.publicKey}`);
   }
 
   const lendingMarket: PublicKey = reserveContext
     .getAllReserves()[0]
-    .getMarketId().key;
+    .getMarketId();
   const [lendingMarketAuthority] = await PublicKey.findProgramAddress(
     [lendingMarket.toBuffer()],
     programId,
@@ -418,9 +449,12 @@ async function liquidateUnhealthyObligation(
     toRefreshReserves.add(deposit.getReserveId());
   });
   toRefreshReserves.forEach((reserve) => {
-    const reserveInfo = reserveContext.getReserveByReserveId(reserve);
+    const reserveInfo = reserveContext.getReserve(reserve);
     instructions.push(
-      refreshReserveInstruction(reserveInfo.getReserveId().key, reserveInfo.getOracleId()?.key ?? null),
+      refreshReserveInstruction(
+        reserveInfo.getReserveId(),
+        reserveInfo.getOracleId() ?? null,
+      ),
     );
   });
 
@@ -429,12 +463,17 @@ async function liquidateUnhealthyObligation(
   let repayReserveId: ReserveId | null = null;
 
   for (const loan of loans) {
-    if (loan.getAssetId().key.toString() === SOL_MINT && payerAccount.lamports > 0) {
+    const reserve = reserveContext.getReserve(loan.getReserveId());
+
+    if (
+      reserve.getAssetMintId().toString() === SOL_MINT && //TODO: test
+      payerAccount.lamports > 0
+    ) {
       repayReserveId = loan.getReserveId();
       break;
     }
 
-    const tokenWallet = wallets.get(loan.getAssetId().key.toString());
+    const tokenWallet = wallets.get(reserve.getAssetMintId().toString()); // TODO: test
     if (!tokenWallet?.amount.isZero()) {
       repayReserveId = loan.getReserveId();
       break;
@@ -442,14 +481,12 @@ async function liquidateUnhealthyObligation(
   }
 
   if (repayReserveId === null) {
-    throw new Error('no liquidity to repay')
+    throw new Error('no liquidity to repay');
   }
 
-  const repayReserve: ReserveInfo = reserveContext.getReserveByReserveId(
-    repayReserveId,
-  );
+  const repayReserve: ReserveInfo = reserveContext.getReserve(repayReserveId);
   // TODO: choose a smarter way to withdraw collateral
-  const withdrawReserve: ReserveInfo = reserveContext.getReserveByReserveId(
+  const withdrawReserve: ReserveInfo = reserveContext.getReserve(
     collaterals[0].getReserveId(),
   );
 
@@ -458,23 +495,28 @@ async function liquidateUnhealthyObligation(
   }
 
   if (
-    repayReserve.getAssetId().toString() !== SOL_MINT &&
-    (!wallets.has(repayReserve.getAssetId().toString()) ||
-      !wallets.has(withdrawReserve.getShareId().toString()))
+    repayReserve.getAssetMintId().toString() !== SOL_MINT &&
+    (!wallets.has(repayReserve.getAssetMintId().toString()) ||
+      !wallets.has(withdrawReserve.getShareMintId().toString()))
   ) {
     return;
   }
 
-  const repayWallet = wallets.get(repayReserve.getAssetId().toString());
-  const withdrawWallet = wallets.get(withdrawReserve.getShareId().toString());
-  
+  const repayWallet = wallets.get(repayReserve.getAssetMintId().toString());
+  const withdrawWallet = wallets.get(
+    withdrawReserve.getShareMintId().toString(),
+  );
+
   if (!repayWallet || !withdrawWallet) {
-    throw new Error("no collateral wallet found")
+    throw new Error('no collateral wallet found');
   }
-  const latestRepayWallet = await fetchTokenAccount(provider, repayWallet.address);
+  const latestRepayWallet = await fetchTokenAccount(
+    provider,
+    repayWallet.address,
+  );
 
   const transferAuthority =
-    repayReserve.getAssetId().toString() !== SOL_MINT
+    repayReserve.getAssetMintId().toString() !== SOL_MINT
       ? await liquidateByPayingToken(
           provider,
           instructions,
@@ -503,16 +545,27 @@ async function liquidateUnhealthyObligation(
   signers.push(transferAuthority);
 
   const liquidationSig = await sendTransaction(provider, instructions, signers);
-  const assetContext = portProfile.getAssetContext();
-  const repayTokenName = assetContext.findConfigByReserveId(repayReserve.getReserveId())?.getDisplayConfig().name;
-  const withdrawTokenName = assetContext.findConfigByReserveId(withdrawReserve.getReserveId())?.getDisplayConfig().name;
-  console.log(`Liqudiation transaction sent: ${liquidationSig}, paying ${repayTokenName} for ${withdrawTokenName}.`);
+  const assetContext = portEnvironment.getAssetContext();
+  const repayTokenName = assetContext
+    .findConfigByReserveId(repayReserve.getReserveId())
+    ?.getDisplayConfig()
+    .getName();
+  const withdrawTokenName = assetContext
+    .findConfigByReserveId(withdrawReserve.getReserveId())
+    ?.getDisplayConfig()
+    .getName();
+  console.log(
+    `Liqudiation transaction sent: ${liquidationSig}, paying ${repayTokenName} for ${withdrawTokenName}.`,
+  );
 
   const latestCollateralWallet = await fetchTokenAccount(
     provider,
-    withdrawWallet.address
+    withdrawWallet.address,
   );
-  wallets.set(withdrawReserve.getShareId().toString(), latestCollateralWallet);
+  wallets.set(
+    withdrawReserve.getShareMintId().toString(),
+    latestCollateralWallet,
+  );
   const redeemSig = await redeemCollateral(
     provider,
     wallets,
@@ -520,7 +573,9 @@ async function liquidateUnhealthyObligation(
     lendingMarketAuthority,
   );
 
-  console.log(`Redeemed ${latestCollateralWallet.amount.toString()} lamport of ${withdrawTokenName} collateral tokens: ${redeemSig}`);
+  console.log(
+    `Redeemed ${latestCollateralWallet.amount.toString()} lamport of ${withdrawTokenName} collateral tokens: ${redeemSig}`,
+  );
 }
 
 async function liquidateByPayingSOL(
@@ -531,7 +586,7 @@ async function liquidateByPayingSOL(
   withdrawWallet: PublicKey,
   repayReserve: ReserveInfo,
   withdrawReserve: ReserveInfo,
-  obligation: PortBalance,
+  obligation: PortProfile,
   lendingMarket: PublicKey,
   lendingMarketAuthority: PublicKey,
 ) {
@@ -622,15 +677,17 @@ async function liquidateByPayingToken(
   withdrawWallet: PublicKey,
   repayReserve: ReserveInfo,
   withdrawReserve: ReserveInfo,
-  obligation: PortBalance,
+  obligation: PortProfile,
   lendingMarket: PublicKey,
   lendingMarketAuthority: PublicKey,
 ): Promise<Keypair> {
   const transferAuthority = new Keypair();
   const stakeAccounts = await fetchStakingAccounts(
     provider.connection,
-    obligation.owner,
-    withdrawReserve.stakingPool,
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    obligation.getOwner()!,
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    withdrawReserve.getStakingPoolId()!,
   );
 
   const laons = obligation.getLoans();
@@ -638,9 +695,9 @@ async function liquidateByPayingToken(
 
   instructions.push(
     refreshObligationInstruction(
-      obligation.getPortId().key,
-      collaterals.map((deposit) => deposit.getReserveId().key),
-      laons.map((borrow) => borrow.getReserveId().key),
+      obligation.getProfileId(),
+      collaterals.map((deposit) => deposit.getReserveId()),
+      laons.map((borrow) => borrow.getReserveId()),
     ),
     Token.createApproveInstruction(
       TOKEN_PROGRAM_ID,
@@ -654,18 +711,18 @@ async function liquidateByPayingToken(
       amount,
       repayWallet,
       withdrawWallet,
-      repayReserve.getReserveId().key,
-      repayReserve.getAssetBalanceId().key,
-      withdrawReserve.getReserveId().key,
-      withdrawReserve.getShareBalanceId().key,
-      obligation.getPortId().key,
+      repayReserve.getReserveId(),
+      repayReserve.getAssetBalanceId(),
+      withdrawReserve.getReserveId(),
+      withdrawReserve.getShareBalanceId(),
+      obligation.getProfileId(),
       lendingMarket,
       lendingMarketAuthority,
       transferAuthority.publicKey,
-      withdrawReserve.stakingPool !== null
-        ? withdrawReserve.stakingPool
+      withdrawReserve.getStakingPoolId() !== null
+        ? withdrawReserve.getStakingPoolId()
         : undefined,
-      withdrawReserve.stakingPool !== null
+      withdrawReserve.getStakingPoolId() !== null
         ? stakeAccounts[0].pubkey
         : undefined,
     ),
@@ -683,11 +740,15 @@ async function redeemCollateral(
   const instructions: TransactionInstruction[] = [];
   const transferAuthority = new Keypair();
 
-  const collateralWallet = wallets.get(withdrawReserve.getShareId().toString());
-  const liquidityWallet = wallets.get(withdrawReserve.getAssetId().toString());
+  const collateralWallet = wallets.get(
+    withdrawReserve.getShareMintId().toString(),
+  );
+  const liquidityWallet = wallets.get(
+    withdrawReserve.getAssetMintId().toString(),
+  );
 
   if (!collateralWallet || !liquidityWallet) {
-    throw new Error("No collateral or liquidity wallet found.")
+    throw new Error('No collateral or liquidity wallet found.');
   }
 
   instructions.push(
@@ -699,21 +760,26 @@ async function redeemCollateral(
       [],
       collateralWallet.amount,
     ),
-    refreshReserveInstruction(withdrawReserve.getReserveId().key, withdrawReserve.getOracleId()?.key ?? null),
+    refreshReserveInstruction(
+      withdrawReserve.getReserveId(),
+      withdrawReserve.getOracleId() ?? null,
+    ),
     redeemReserveCollateralInstruction(
       collateralWallet.amount,
       collateralWallet.address,
       liquidityWallet.address,
-      withdrawReserve.getReserveId().key,
-      withdrawReserve.getShareId().key,
-      withdrawReserve.getAssetBalanceId().key,
-      withdrawReserve.getMarketId().key,
+      withdrawReserve.getReserveId(),
+      withdrawReserve.getShareMintId(),
+      withdrawReserve.getAssetBalanceId(),
+      withdrawReserve.getMarketId(),
       lendingMarketAuthority,
       transferAuthority.publicKey,
     ),
   );
-  
-  const redeemSig = await sendTransaction(provider, instructions, [transferAuthority]);
+
+  const redeemSig = await sendTransaction(provider, instructions, [
+    transferAuthority,
+  ]);
   return redeemSig;
 }
 

@@ -7,10 +7,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "ts-node src/index.ts",
     "liquidator": "ts-node src/partial.ts",
-    "refreshAll": "ts-node src/refreshAll.ts",
-    "test": "ts-node src/test.ts",
     "watch": "tsc --watch",
     "clean": "rm -rf dist",
     "prepare": "run-s clean build",
@@ -34,7 +31,7 @@
     "typescript": "^4.0.5"
   },
   "dependencies": {
-    "@port.finance/port-sdk": "^0.1.69",
+    "@port.finance/port-sdk": "^0.2.21",
     "@project-serum/common": "^0.0.1-beta.3",
     "@project-serum/serum": "^0.13.41",
     "@pythnetwork/client": "^2.2.0",

@@ -548,20 +548,20 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@port.finance/port-sdk@^0.1.69":
-  version "0.1.69"
-  resolved "https://registry.npmjs.org/@port.finance/port-sdk/-/port-sdk-0.1.69.tgz"
-  integrity sha512-AyjxXxW9iv9Zuyb9cMvL+LTZJyGIY1lJ0Y74xh3V+VcdzeoP2WS+wrQvVtf3FBGaac8/7cVnnTggOLveDGxZzw==
+"@port.finance/port-sdk@^0.2.21":
+  version "0.2.21"
+  resolved "https://registry.yarnpkg.com/@port.finance/port-sdk/-/port-sdk-0.2.21.tgz#ef1840a4017d736e19f5a97981000b1d225f67ae"
+  integrity sha512-0R110DdmXc0fxNiGfEJQU+7Zx0g92PUP1Kh/3iyTgMsnURpBuLhfQTgCP3uIIUq8P8roCo1tLCalpUBIh0IPUw==
   dependencies:
+    "@solana/buffer-layout" "^3.0.0"
     "@solana/spl-token" "^0.1.8"
-    "@solana/spl-token-registry" "^0.2.205"
+    "@solana/spl-token-registry" "^0.2.1107"
     big.js "^6.1.1"
     bignumber.js "^9.0.1"
     buffer-layout "1.2.2"
     prettier "^2.4.1"
     tiny-invariant "^1.2.0"
     typescript "^4.3.5"
-    user "^0.0.0"
 
 "@project-serum/anchor@^0.11.1":
   version "0.11.1"
@@ -705,10 +705,10 @@
   dependencies:
     buffer "~6.0.3"
 
-"@solana/spl-token-registry@^0.2.205":
-  version "0.2.274"
-  resolved "https://registry.npmjs.org/@solana/spl-token-registry/-/spl-token-registry-0.2.274.tgz"
-  integrity sha512-PPZa57crMYA9cPIB49IjzNF/7cI3L5ZAl66eL46JCnuYLIF62YgJwwsRFFX7D17nDeIFJnQ28WkGdQD2LO8qsw==
+"@solana/spl-token-registry@^0.2.1107":
+  version "0.2.1166"
+  resolved "https://registry.yarnpkg.com/@solana/spl-token-registry/-/spl-token-registry-0.2.1166.tgz#7eb804ce07a0a7f1290339f02764ccf3af3b937c"
+  integrity sha512-WizabFUtfz8s1Psn3EWn0vWrXlAAMv3GD9aTBXdMacBnqX+7GKMXy7qIwt55Er8GZ/lvhvumZEPWN2Ygkb3jsQ==
   dependencies:
     cross-fetch "3.0.6"
 
@@ -5160,11 +5160,6 @@ use@^3.1.0:
   version "3.1.1"
   resolved "https://registry.npmjs.org/use/-/use-3.1.1.tgz"
   integrity sha512-cwESVXlO3url9YWlFW/TA9cshCEhtu7IKJ/p5soJ/gGpj7vbvFrAY/eIioQ6Dw23KjZhYgiIo8HOs1nQ2vr/oQ==
-
-user@^0.0.0:
-  version "0.0.0"
-  resolved "https://registry.npmjs.org/user/-/user-0.0.0.tgz"
-  integrity sha1-8n8bI/xRHyqO+kDbVc+6Ejgk4Co=
 
 utf-8-validate@^5.0.2:
   version "5.0.5"
