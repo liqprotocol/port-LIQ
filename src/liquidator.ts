@@ -5,6 +5,7 @@ import {
   SystemProgram,
   AccountInfo,
   TransactionInstruction,
+  Transaction,
 } from '@solana/web3.js';
 import { homedir } from 'os';
 import * as fs from 'fs';
@@ -481,7 +482,7 @@ async function liquidateUnhealthyObligation(
   }
 
   if (repayReserveId === null) {
-    throw new Error('no liquidity to repay');
+    throw new Error(`No token to repay at risk obligation: ${obligation.obligation.getId().toString()}`);
   }
 
   const repayReserve: ReserveInfo = reserveContext.getReserve(repayReserveId);
@@ -515,34 +516,33 @@ async function liquidateUnhealthyObligation(
     repayWallet.address,
   );
 
-  const transferAuthority =
-    repayReserve.getAssetMintId().toString() !== SOL_MINT
-      ? await liquidateByPayingToken(
-          provider,
-          instructions,
-          latestRepayWallet.amount,
-          repayWallet.address,
-          withdrawWallet.address,
-          repayReserve,
-          withdrawReserve,
-          obligation.obligation,
-          lendingMarket,
-          lendingMarketAuthority,
-        )
-      : await liquidateByPayingSOL(
-          provider,
-          instructions,
-          signers,
-          new u64(payerAccount.lamports - 100_000_000),
-          withdrawWallet.address,
-          repayReserve,
-          withdrawReserve,
-          obligation.obligation,
-          lendingMarket,
-          lendingMarketAuthority,
-        );
-
-  signers.push(transferAuthority);
+  if (repayReserve.getAssetMintId().toString() !== SOL_MINT) {
+    await liquidateByPayingToken(
+      provider,
+      instructions,
+      latestRepayWallet.amount,
+      repayWallet.address,
+      withdrawWallet.address,
+      repayReserve,
+      withdrawReserve,
+      obligation.obligation,
+      lendingMarket,
+      lendingMarketAuthority,
+    );
+  } else {
+    await liquidateByPayingSOL(
+      provider,
+      instructions,
+      signers,
+      new u64(payerAccount.lamports - 100_000_000),
+      withdrawWallet.address,
+      repayReserve,
+      withdrawReserve,
+      obligation.obligation,
+      lendingMarket,
+      lendingMarketAuthority,
+    );
+  }
 
   const liquidationSig = await sendTransaction(provider, instructions, signers);
   const assetContext = portEnvironment.getAssetContext();
@@ -589,7 +589,7 @@ async function liquidateByPayingSOL(
   obligation: PortProfile,
   lendingMarket: PublicKey,
   lendingMarketAuthority: PublicKey,
-) {
+): Promise<void> {
   const wrappedSOLTokenAccount = new Keypair();
   instructions.push(
     SystemProgram.createAccount({
@@ -607,7 +607,7 @@ async function liquidateByPayingSOL(
     ),
   );
 
-  const transferAuthority = await liquidateByPayingToken(
+  await liquidateByPayingToken(
     provider,
     instructions,
     amount,
@@ -631,8 +631,6 @@ async function liquidateByPayingSOL(
   );
 
   signers.push(wrappedSOLTokenAccount);
-
-  return transferAuthority;
 }
 
 async function fetchStakingAccounts(
@@ -680,8 +678,7 @@ async function liquidateByPayingToken(
   obligation: PortProfile,
   lendingMarket: PublicKey,
   lendingMarketAuthority: PublicKey,
-): Promise<Keypair> {
-  const transferAuthority = new Keypair();
+): Promise<void> {
   const stakeAccounts = await fetchStakingAccounts(
     provider.connection,
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -699,14 +696,6 @@ async function liquidateByPayingToken(
       collaterals.map((deposit) => deposit.getReserveId()),
       laons.map((borrow) => borrow.getReserveId()),
     ),
-    Token.createApproveInstruction(
-      TOKEN_PROGRAM_ID,
-      repayWallet,
-      transferAuthority.publicKey,
-      provider.wallet.publicKey,
-      [],
-      amount,
-    ),
     liquidateObligationInstruction(
       amount,
       repayWallet,
@@ -718,7 +707,7 @@ async function liquidateByPayingToken(
       obligation.getProfileId(),
       lendingMarket,
       lendingMarketAuthority,
-      transferAuthority.publicKey,
+      provider.wallet.publicKey,
       withdrawReserve.getStakingPoolId() !== null
         ? withdrawReserve.getStakingPoolId()
         : undefined,
@@ -728,7 +717,6 @@ async function liquidateByPayingToken(
     ),
   );
 
-  return transferAuthority;
 }
 
 async function redeemCollateral(
