@@ -548,10 +548,10 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@port.finance/port-sdk@^0.2.21":
-  version "0.2.21"
-  resolved "https://registry.yarnpkg.com/@port.finance/port-sdk/-/port-sdk-0.2.21.tgz#ef1840a4017d736e19f5a97981000b1d225f67ae"
-  integrity sha512-0R110DdmXc0fxNiGfEJQU+7Zx0g92PUP1Kh/3iyTgMsnURpBuLhfQTgCP3uIIUq8P8roCo1tLCalpUBIh0IPUw==
+"@port.finance/port-sdk@^0.2.23":
+  version "0.2.23"
+  resolved "https://registry.yarnpkg.com/@port.finance/port-sdk/-/port-sdk-0.2.23.tgz#a0f3220b5e18cab333229128a2bb2e96358908c2"
+  integrity sha512-uyk5t4rcs7c9hy4nQKkEvrdi1ziX4aQaJS2QzE45zz6iAP6isPBlFQRX6AbNhamptFPEI0OsYTXpVfJKQ2QHMw==
   dependencies:
     "@solana/buffer-layout" "^3.0.0"
     "@solana/spl-token" "^0.1.8"
